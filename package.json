@@ -7,7 +7,6 @@
     "destroy:wp": "wp-env destroy",
     "clean:wp": "wp-env clean all",
     "test:unit": "composer exec -- phpunit --testsuite unit --no-coverage",
-    "test:integration": "wp-env run tests-cli php /var/www/html/wp-content/plugins/aldersverificering-woocommerce/vendor/bin/phpunit --configuration /var/www/html/wp-content/plugins/aldersverificering-woocommerce/phpunit.xml.dist --testsuite integration --no-coverage",
     "test": "pnpm test:unit"
   },
   "devDependencies": {

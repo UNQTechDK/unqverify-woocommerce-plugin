@@ -8,12 +8,11 @@
     },
     "require-dev": {
         "phpunit/phpunit": "^9.6",
-        "yoast/phpunit-polyfills": "^2.0",
         "brain/monkey": "^2.6"
     },
     "autoload-dev": {
         "psr-4": {
-            "UNQVerify\\Tests\\": "tests/"
+            "UNQVerify\\Tests\\Unit\\": "tests/unit/"
         }
     },
     "config": {

@@ -10,6 +10,47 @@
 require_once dirname( __DIR__, 2 ) . '/vendor/autoload.php';
 
 // ---------------------------------------------------------------------------
+// WordPress class stubs — Brain\Monkey mocks functions but not classes.
+// ---------------------------------------------------------------------------
+
+if ( ! class_exists( 'WP_Error' ) ) {
+    class WP_Error {
+        private string $code;
+        private string $message;
+        private mixed  $data;
+
+        public function __construct( string $code = '', string $message = '', mixed $data = '' ) {
+            $this->code    = $code;
+            $this->message = $message;
+            $this->data    = $data;
+        }
+
+        public function get_error_code(): string {
+            return $this->code;
+        }
+
+        public function get_error_message( string $code = '' ): string {
+            return $this->message;
+        }
+
+        public function get_error_data( string $code = '' ): mixed {
+            return $this->data;
+        }
+    }
+}
+
+// ---------------------------------------------------------------------------
+// WordPress function stubs that must exist before bootstrap (Brain\Monkey
+// does not auto-stub pure escaping helpers — define them early).
+// ---------------------------------------------------------------------------
+
+if ( ! function_exists( 'esc_html' ) ) {
+    function esc_html( $text ) {
+        return htmlspecialchars( (string) $text, ENT_QUOTES | ENT_SUBSTITUTE, 'UTF-8' );
+    }
+}
+
+// ---------------------------------------------------------------------------
 // WordPress constant stubs — the plugin files need these at parse time.
 // ---------------------------------------------------------------------------
 if ( ! defined( 'ABSPATH' ) ) {

@@ -160,10 +160,12 @@ class JwkToPemTest extends TestCase {
     }
 
     // ------------------------------------------------------------------
-    // 17. Empty JWKS keys array → WP_Error key_not_found.
+    // 17. Empty JWKS keys array → WP_Error key_invalid.
+    //     The validator guards `empty($jwks['keys'])` before iterating,
+    //     so an empty array hits the key_invalid branch, not key_not_found.
     // ------------------------------------------------------------------
 
-    public function test_empty_jwks_keys_returns_key_not_found_error(): void {
+    public function test_empty_jwks_keys_returns_key_invalid_error(): void {
         $empty_jwks = json_encode( [ 'keys' => [] ] );
 
         Functions\when( 'get_transient' )->justReturn( false );
@@ -175,7 +177,7 @@ class JwkToPemTest extends TestCase {
         $result = \UNQ_JWT_Validator::get_public_key();
 
         $this->assertInstanceOf( \WP_Error::class, $result );
-        $this->assertSame( 'unqverify_key_not_found', $result->get_error_code() );
+        $this->assertSame( 'unqverify_key_invalid', $result->get_error_code() );
     }
 
     // ------------------------------------------------------------------
