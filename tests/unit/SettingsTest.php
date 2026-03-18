@@ -182,4 +182,302 @@ class SettingsTest extends TestCase {
 
         $this->assertSame( 'da', unq_agev_resolve_locale() );
     }
+
+    // ------------------------------------------------------------------
+    // 32. 'test_public_key' default is empty string
+    // ------------------------------------------------------------------
+
+    public function test_test_public_key_default_returns_empty_string(): void {
+        Functions\when( 'get_option' )->alias( fn( $opt, $def = null ) => $def );
+
+        $this->assertSame( '', unq_agev_get( 'test_public_key' ) );
+    }
+
+    // ------------------------------------------------------------------
+    // 33. 'use_production' default is 'no'
+    // ------------------------------------------------------------------
+
+    public function test_use_production_default_returns_no(): void {
+        Functions\when( 'get_option' )->alias( fn( $opt, $def = null ) => $def );
+
+        $this->assertSame( 'no', unq_agev_get( 'use_production' ) );
+    }
+
+    // ------------------------------------------------------------------
+    // 34. 'use_production' rejects invalid value → falls back to 'no'
+    // ------------------------------------------------------------------
+
+    public function test_invalid_use_production_falls_back_to_no(): void {
+        Functions\when( 'get_option' )->alias( function ( $opt, $def = null ) {
+            if ( 'unq_agev_use_production' === $opt ) {
+                return 'maybe';
+            }
+            return $def;
+        } );
+
+        $this->assertSame( 'no', unq_agev_get( 'use_production' ) );
+    }
+
+    // ------------------------------------------------------------------
+    // 35. unq_agev_active_key() returns test key when use_production=no
+    // ------------------------------------------------------------------
+
+    public function test_active_key_returns_test_key_in_test_mode(): void {
+        Functions\when( 'get_option' )->alias( function ( $opt, $def = null ) {
+            if ( 'unq_agev_test_public_key' === $opt )  return 'pk_test_abc123';
+            if ( 'unq_agev_public_key' === $opt )       return 'pk_live_xyz789';
+            if ( 'unq_agev_use_production' === $opt )   return 'no';
+            return $def;
+        } );
+
+        $this->assertSame( 'pk_test_abc123', unq_agev_active_key() );
+    }
+
+    // ------------------------------------------------------------------
+    // 36. unq_agev_active_key() returns production key when use_production=yes and key is set
+    // ------------------------------------------------------------------
+
+    public function test_active_key_returns_production_key_in_production_mode(): void {
+        Functions\when( 'get_option' )->alias( function ( $opt, $def = null ) {
+            if ( 'unq_agev_test_public_key' === $opt )  return 'pk_test_abc123';
+            if ( 'unq_agev_public_key' === $opt )       return 'pk_live_xyz789';
+            if ( 'unq_agev_use_production' === $opt )   return 'yes';
+            return $def;
+        } );
+
+        $this->assertSame( 'pk_live_xyz789', unq_agev_active_key() );
+    }
+
+    // ------------------------------------------------------------------
+    // 37. unq_agev_active_key() falls back to test key when production
+    //     mode is on but no production key is saved
+    // ------------------------------------------------------------------
+
+    public function test_active_key_falls_back_to_test_key_when_no_production_key(): void {
+        Functions\when( 'get_option' )->alias( function ( $opt, $def = null ) {
+            if ( 'unq_agev_test_public_key' === $opt )  return 'pk_test_abc123';
+            if ( 'unq_agev_public_key' === $opt )       return '';
+            if ( 'unq_agev_use_production' === $opt )   return 'yes';
+            return $def;
+        } );
+
+        // Production toggle is on but the key is empty → fall back to test key.
+        $this->assertSame( 'pk_test_abc123', unq_agev_active_key() );
+    }
+
+    // ------------------------------------------------------------------
+    // 38. 'targeting' defaults to 'all' when option not set
+    // ------------------------------------------------------------------
+
+    public function test_targeting_default_returns_all(): void {
+        Functions\when( 'get_option' )->alias( fn( $opt, $def = null ) => $def );
+
+        $this->assertSame( 'all', unq_agev_get( 'targeting' ) );
+    }
+
+    // ------------------------------------------------------------------
+    // 39. 'targeting' returns 'selected_only' when option is set
+    // ------------------------------------------------------------------
+
+    public function test_targeting_returns_selected_only_when_set(): void {
+        Functions\when( 'get_option' )->alias( function ( $opt, $def = null ) {
+            if ( 'unq_agev_targeting' === $opt ) return 'selected_only';
+            return $def;
+        } );
+
+        $this->assertSame( 'selected_only', unq_agev_get( 'targeting' ) );
+    }
+
+    // ------------------------------------------------------------------
+    // 40. 'targeting' rejects invalid value → falls back to 'all'
+    // ------------------------------------------------------------------
+
+    public function test_targeting_rejects_invalid_value(): void {
+        Functions\when( 'get_option' )->alias( function ( $opt, $def = null ) {
+            if ( 'unq_agev_targeting' === $opt ) return 'everything';
+            return $def;
+        } );
+
+        $this->assertSame( 'all', unq_agev_get( 'targeting' ) );
+    }
+
+    // ------------------------------------------------------------------
+    // 41. cart_is_gated() returns true when targeting=all, enabled, key set
+    // ------------------------------------------------------------------
+
+    public function test_cart_is_gated_true_when_all_enabled_key_set(): void {
+        Functions\when( 'get_option' )->alias( function ( $opt, $def = null ) {
+            if ( 'unq_agev_enabled' === $opt )          return 'yes';
+            if ( 'unq_agev_test_public_key' === $opt )  return 'pk_test_key';
+            if ( 'unq_agev_use_production' === $opt )   return 'no';
+            if ( 'unq_agev_targeting' === $opt )        return 'all';
+            return $def;
+        } );
+
+        $this->assertTrue( unq_agev_cart_is_gated( array() ) );
+    }
+
+    // ------------------------------------------------------------------
+    // 42. cart_is_gated() returns false when plugin is disabled
+    // ------------------------------------------------------------------
+
+    public function test_cart_is_gated_false_when_disabled(): void {
+        Functions\when( 'get_option' )->alias( function ( $opt, $def = null ) {
+            if ( 'unq_agev_enabled' === $opt ) return 'no';
+            return $def;
+        } );
+
+        $this->assertFalse( unq_agev_cart_is_gated( array() ) );
+    }
+
+    // ------------------------------------------------------------------
+    // 43. cart_is_gated() returns false when targeting=selected_only and
+    //     cart contains no gated products
+    // ------------------------------------------------------------------
+
+    public function test_cart_is_gated_false_when_selected_only_no_gated_items(): void {
+        Functions\when( 'get_option' )->alias( function ( $opt, $def = null ) {
+            if ( 'unq_agev_enabled' === $opt )          return 'yes';
+            if ( 'unq_agev_test_public_key' === $opt )  return 'pk_test_key';
+            if ( 'unq_agev_use_production' === $opt )   return 'no';
+            if ( 'unq_agev_targeting' === $opt )        return 'selected_only';
+            return $def;
+        } );
+        // Product 99 has no _unq_agev_required meta.
+        Functions\when( 'get_post_meta' )->alias( fn() => '' );
+        Functions\when( 'get_the_terms' )->alias( fn() => array() );
+
+        $this->assertFalse( unq_agev_cart_is_gated( array( array( 'product_id' => 99 ) ) ) );
+    }
+
+    // ------------------------------------------------------------------
+    // 44. cart_is_gated() returns true when targeting=selected_only and
+    //     one product has _unq_agev_required = 'yes'
+    // ------------------------------------------------------------------
+
+    public function test_cart_is_gated_true_when_product_has_required_meta(): void {
+        Functions\when( 'get_option' )->alias( function ( $opt, $def = null ) {
+            if ( 'unq_agev_enabled' === $opt )          return 'yes';
+            if ( 'unq_agev_test_public_key' === $opt )  return 'pk_test_key';
+            if ( 'unq_agev_use_production' === $opt )   return 'no';
+            if ( 'unq_agev_targeting' === $opt )        return 'selected_only';
+            return $def;
+        } );
+        Functions\when( 'get_post_meta' )->alias( function ( $id, $key, $single = false ) {
+            if ( 42 === $id && '_unq_agev_required' === $key ) return 'yes';
+            return '';
+        } );
+        Functions\when( 'get_the_terms' )->alias( fn() => array() );
+
+        $this->assertTrue( unq_agev_cart_is_gated( array( array( 'product_id' => 42 ) ) ) );
+    }
+
+    // ------------------------------------------------------------------
+    // 45. cart_is_gated() returns true when product belongs to a gated
+    //     category (term meta unq_agev_category_required = 'yes')
+    // ------------------------------------------------------------------
+
+    public function test_cart_is_gated_true_when_category_has_required_meta(): void {
+        Functions\when( 'get_option' )->alias( function ( $opt, $def = null ) {
+            if ( 'unq_agev_enabled' === $opt )          return 'yes';
+            if ( 'unq_agev_test_public_key' === $opt )  return 'pk_test_key';
+            if ( 'unq_agev_use_production' === $opt )   return 'no';
+            if ( 'unq_agev_targeting' === $opt )        return 'selected_only';
+            return $def;
+        } );
+        // Product itself is NOT flagged, but its category IS.
+        Functions\when( 'get_post_meta' )->alias( fn() => '' );
+
+        $fake_term = new \stdClass();
+        $fake_term->term_id = 7;
+        Functions\when( 'get_the_terms' )->alias( fn() => array( $fake_term ) );
+        Functions\when( 'get_term_meta' )->alias( function ( $id, $key, $single = false ) {
+            if ( 7 === $id && 'unq_agev_category_required' === $key ) return 'yes';
+            return '';
+        } );
+
+        $this->assertTrue( unq_agev_cart_is_gated( array( array( 'product_id' => 55 ) ) ) );
+    }
+
+    // ------------------------------------------------------------------
+    // 46. cart_required_age() returns global setting when targeting=all
+    // ------------------------------------------------------------------
+
+    public function test_cart_required_age_returns_global_when_targeting_all(): void {
+        Functions\when( 'get_option' )->alias( function ( $opt, $def = null ) {
+            if ( 'unq_agev_targeting' === $opt )    return 'all';
+            if ( 'unq_agev_required_age' === $opt ) return '21';
+            return $def;
+        } );
+
+        $this->assertSame( 21, unq_agev_cart_required_age( array() ) );
+    }
+
+    // ------------------------------------------------------------------
+    // 47. cart_required_age() returns product override when set
+    // ------------------------------------------------------------------
+
+    public function test_cart_required_age_returns_product_override(): void {
+        Functions\when( 'get_option' )->alias( function ( $opt, $def = null ) {
+            if ( 'unq_agev_targeting' === $opt )    return 'selected_only';
+            if ( 'unq_agev_required_age' === $opt ) return '18';
+            return $def;
+        } );
+        Functions\when( 'get_post_meta' )->alias( function ( $id, $key, $single = false ) {
+            if ( 10 === $id && '_unq_agev_required' === $key )     return 'yes';
+            if ( 10 === $id && '_unq_agev_required_age' === $key ) return '21';
+            return '';
+        } );
+        Functions\when( 'get_the_terms' )->alias( fn() => array() );
+
+        $this->assertSame( 21, unq_agev_cart_required_age( array( array( 'product_id' => 10 ) ) ) );
+    }
+
+    // ------------------------------------------------------------------
+    // 48. cart_required_age() returns max age when two gated items have
+    //     different age overrides (18 and 21 → should return 21)
+    // ------------------------------------------------------------------
+
+    public function test_cart_required_age_returns_max_of_multiple_items(): void {
+        Functions\when( 'get_option' )->alias( function ( $opt, $def = null ) {
+            if ( 'unq_agev_targeting' === $opt )    return 'selected_only';
+            if ( 'unq_agev_required_age' === $opt ) return '18';
+            return $def;
+        } );
+        Functions\when( 'get_post_meta' )->alias( function ( $id, $key, $single = false ) {
+            if ( '_unq_agev_required' === $key )     return 'yes';
+            if ( 10 === $id && '_unq_agev_required_age' === $key ) return '18';
+            if ( 20 === $id && '_unq_agev_required_age' === $key ) return '21';
+            return '';
+        } );
+        Functions\when( 'get_the_terms' )->alias( fn() => array() );
+
+        $items = array(
+            array( 'product_id' => 10 ),
+            array( 'product_id' => 20 ),
+        );
+        $this->assertSame( 21, unq_agev_cart_required_age( $items ) );
+    }
+
+    // ------------------------------------------------------------------
+    // 49. cart_required_age() falls back to global age when gated item
+    //     has no per-product age override
+    // ------------------------------------------------------------------
+
+    public function test_cart_required_age_falls_back_to_global_when_no_override(): void {
+        Functions\when( 'get_option' )->alias( function ( $opt, $def = null ) {
+            if ( 'unq_agev_targeting' === $opt )    return 'selected_only';
+            if ( 'unq_agev_required_age' === $opt ) return '18';
+            return $def;
+        } );
+        Functions\when( 'get_post_meta' )->alias( function ( $id, $key, $single = false ) {
+            if ( '_unq_agev_required' === $key )     return 'yes';
+            if ( '_unq_agev_required_age' === $key ) return '0'; // Empty override.
+            return '';
+        } );
+        Functions\when( 'get_the_terms' )->alias( fn() => array() );
+
+        $this->assertSame( 18, unq_agev_cart_required_age( array( array( 'product_id' => 5 ) ) ) );
+    }
 }
+

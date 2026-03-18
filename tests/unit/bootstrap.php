@@ -83,6 +83,11 @@ if ( ! function_exists( 'unq_agev_get' ) ) {
                 return get_option( 'unq_agev_enabled', 'yes' );
             case 'public_key':
                 return (string) get_option( 'unq_agev_public_key', '' );
+            case 'test_public_key':
+                return (string) get_option( 'unq_agev_test_public_key', '' );
+            case 'use_production':
+                $val = get_option( 'unq_agev_use_production', 'no' );
+                return in_array( $val, array( 'yes', 'no' ), true ) ? $val : 'no';
             case 'required_age':
                 return max( 1, (int) get_option( 'unq_agev_required_age', 18 ) );
             case 'mode':
@@ -91,9 +96,104 @@ if ( ! function_exists( 'unq_agev_get' ) ) {
             case 'locale':
                 $locale = get_option( 'unq_agev_locale', 'auto' );
                 return in_array( $locale, array( 'auto', 'en', 'da' ), true ) ? $locale : 'auto';
+            case 'targeting':
+                $targeting = get_option( 'unq_agev_targeting', 'all' );
+                return in_array( $targeting, array( 'all', 'selected_only' ), true ) ? $targeting : 'all';
             default:
                 return '';
         }
+    }
+}
+
+// Stub for unq_agev_active_key() — mirrors real plugin logic.
+if ( ! function_exists( 'unq_agev_active_key' ) ) {
+    function unq_agev_active_key() {
+        if ( 'yes' === unq_agev_get( 'use_production' ) && ! empty( unq_agev_get( 'public_key' ) ) ) {
+            return unq_agev_get( 'public_key' );
+        }
+        return unq_agev_get( 'test_public_key' );
+    }
+}
+
+// Stub for unq_agev_cart_is_gated() — cart helpers need a WC cart stub.
+// Unit tests exercise the logic directly via helper functions defined below.
+if ( ! function_exists( 'unq_agev_cart_is_gated' ) ) {
+    /**
+     * @param array|null $cart_items   Array of cart item arrays for testing.
+     *                                  Each item: ['product_id' => int].
+     *                                  Pass null to simulate no WC cart available.
+     */
+    function unq_agev_cart_is_gated( $cart_items = null ) {
+        if ( 'yes' !== unq_agev_get( 'enabled' ) || empty( unq_agev_active_key() ) ) {
+            return false;
+        }
+        if ( 'all' === unq_agev_get( 'targeting' ) ) {
+            return true;
+        }
+        if ( null === $cart_items ) {
+            return false;
+        }
+        foreach ( $cart_items as $item ) {
+            $product_id = (int) ( $item['product_id'] ?? 0 );
+            if ( ! $product_id ) {
+                continue;
+            }
+            if ( 'yes' === get_post_meta( $product_id, '_unq_agev_required', true ) ) {
+                return true;
+            }
+            $terms = get_the_terms( $product_id, 'product_cat' );
+            if ( is_array( $terms ) ) {
+                foreach ( $terms as $term ) {
+                    if ( 'yes' === get_term_meta( $term->term_id, 'unq_agev_category_required', true ) ) {
+                        return true;
+                    }
+                }
+            }
+        }
+        return false;
+    }
+}
+
+// Stub for unq_agev_cart_required_age() — mirrors real plugin logic.
+if ( ! function_exists( 'unq_agev_cart_required_age' ) ) {
+    /**
+     * @param array|null $cart_items  Same format as unq_agev_cart_is_gated().
+     */
+    function unq_agev_cart_required_age( $cart_items = null ) {
+        if ( 'all' === unq_agev_get( 'targeting' ) ) {
+            return unq_agev_get( 'required_age' );
+        }
+        $global = unq_agev_get( 'required_age' );
+        if ( null === $cart_items ) {
+            return $global;
+        }
+        $ages = array();
+        foreach ( $cart_items as $item ) {
+            $product_id = (int) ( $item['product_id'] ?? 0 );
+            if ( ! $product_id ) {
+                continue;
+            }
+            $is_gated = false;
+            if ( 'yes' === get_post_meta( $product_id, '_unq_agev_required', true ) ) {
+                $is_gated = true;
+            } else {
+                $terms = get_the_terms( $product_id, 'product_cat' );
+                if ( is_array( $terms ) ) {
+                    foreach ( $terms as $term ) {
+                        if ( 'yes' === get_term_meta( $term->term_id, 'unq_agev_category_required', true ) ) {
+                            $is_gated = true;
+                            break;
+                        }
+                    }
+                }
+            }
+            if ( ! $is_gated ) {
+                continue;
+            }
+            $override = (int) get_post_meta( $product_id, '_unq_agev_required_age', true );
+            $ages[]   = ( $override > 0 ) ? $override : $global;
+        }
+        return empty( $ages ) ? $global : max( $ages );
     }
 }
 

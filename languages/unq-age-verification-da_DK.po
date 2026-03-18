@@ -15,45 +15,82 @@ msgstr ""
 "Content-Transfer-Encoding: 8bit\n"
 "Plural-Forms: nplurals=2; plural=(n != 1);\n"
 
-# Settings tab label.
+# ── Settings tab ─────────────────────────────────────────────────────────────
+
 msgid "UNQVerify"
 msgstr "UNQVerify"
 
-# Settings section title.
-msgid "UNQVerify Age Verification"
-msgstr "UNQVerify Aldersverificering"
+# ── Status bar ───────────────────────────────────────────────────────────────
 
-# Settings section description.
-msgid "MitID-based age verification for WooCommerce checkout. Get your API key from the <a href=\"%s\" target=\"_blank\" rel=\"noopener\">UNQVerify dashboard</a>."
-msgstr "MitID-baseret aldersverificering til WooCommerce kassen. Hent din API-nøgle fra <a href=\"%s\" target=\"_blank\" rel=\"noopener\">UNQVerify dashboard</a>."
+msgid "⚠ Disabled — no active key"
+msgstr "⚠ Deaktiveret — ingen aktiv nøgle"
 
-# Enable setting label.
+msgid "✅ Production — live verification active"
+msgstr "✅ Produktion — live verificering aktiv"
+
+msgid "🧪 Test mode — verifications are simulated"
+msgstr "🧪 Testtilstand — verifikationer er simulerede"
+
+msgid "Age verification is active on checkout"
+msgstr "Aldersverificering er aktiv ved kassen"
+
+msgid "Age verification is currently disabled"
+msgstr "Aldersverificering er i øjeblikket deaktiveret"
+
+# ── Environment & API Keys card ───────────────────────────────────────────────
+
+msgid "Environment &amp; API Keys"
+msgstr "Miljø &amp; API-nøgler"
+
+msgid "Choose which environment is active, then enter the matching API key. Use Test mode first to verify the integration before going live."
+msgstr "Vælg hvilket miljø der er aktivt, og angiv den tilsvarende API-nøgle. Brug Testtilstand først for at verificere integrationen inden du går live."
+
+msgid "Test"
+msgstr "Test"
+
+msgid "Production"
+msgstr "Produktion"
+
+msgid "Test Public Key"
+msgstr "Test Public Key"
+
+msgid "Starts with pk_test_ — safe for development and staging."
+msgstr "Starter med pk_test_ — sikker til udvikling og staging."
+
+msgid "→ Get test key"
+msgstr "→ Hent testnøgle"
+
+msgid "Production Public Key"
+msgstr "Produktions Public Key"
+
+msgid "Starts with pk_live_ — enables real MitID verification."
+msgstr "Starter med pk_live_ — aktiverer rigtig MitID-verificering."
+
+msgid "→ Get production key"
+msgstr "→ Hent produktionsnøgle"
+
+# ── General Settings card ─────────────────────────────────────────────────────
+
+msgid "General Settings"
+msgstr "Generelle indstillinger"
+
 msgid "Enable"
 msgstr "Aktivér"
 
 msgid "Enable age verification on checkout"
 msgstr "Aktivér aldersverificering ved kassen"
 
-# Public key setting.
-msgid "Public Key"
-msgstr "Public Key"
-
-msgid "Your UNQVerify public key. Use <code>pk_test_*</code> for the test environment or <code>pk_live_*</code> for production — the key prefix determines the environment automatically."
-msgstr "Din UNQVerify public key. Brug <code>pk_test_*</code> til testmiljøet eller <code>pk_live_*</code> til produktion — nøglepræfikset bestemmer automatisk miljøet."
-
-# Required age setting.
 msgid "Required Age"
 msgstr "Påkrævet alder"
 
 msgid "Minimum age (in years) a customer must have verified to complete a purchase."
 msgstr "Minimumsalder (i år) som en kunde skal have verificeret for at gennemføre et køb."
 
-# Verification mode setting.
 msgid "Verification Mode"
 msgstr "Verifikationstilstand"
 
-msgid "<strong>Popup</strong> — MitID opens in a small popup; the customer stays on your page (recommended).<br><strong>Full-page redirect</strong> — The browser navigates to MitID and returns after verification. Use this if your customers frequently have popups blocked."
-msgstr "<strong>Popup</strong> — MitID åbner i et lille popup-vindue; kunden forbliver på din side (anbefalet).<br><strong>Fuld-side redirect</strong> — Browseren navigerer til MitID og vender tilbage efter verificering. Brug dette hvis dine kunder ofte har popups blokeret."
+msgid "Popup keeps customers on your page. Use redirect if popups are frequently blocked on your audience's devices."
+msgstr "Popup holder kunderne på din side. Brug redirect hvis popups ofte blokeres på dit publikums enheder."
 
 msgid "Popup (recommended)"
 msgstr "Popup (anbefalet)"
@@ -61,12 +98,11 @@ msgstr "Popup (anbefalet)"
 msgid "Full-page redirect"
 msgstr "Fuld-side redirect"
 
-# Popup language setting.
 msgid "Popup Language"
 msgstr "Popup-sprog"
 
-msgid "Language shown to customers in the age verification popup and notices. Auto-detect uses the WordPress site language."
-msgstr "Sprog vist til kunder i aldersverificerings-popup og beskeder. Auto-detektering bruger WordPress-sproget."
+msgid "Language shown to customers in the age verification popup and notices."
+msgstr "Sprog vist til kunder i aldersverificerings-popup og beskeder."
 
 msgid "Auto-detect (uses WordPress site language)"
 msgstr "Auto-detektering (bruger WordPress-sproget)"
@@ -77,10 +113,130 @@ msgstr "Engelsk"
 msgid "Dansk"
 msgstr "Dansk"
 
-# Admin notice.
+# ── Domain Setup card ─────────────────────────────────────────────────────────
+
+msgid "Domain Setup"
+msgstr "Domæneopsætning"
+
+msgid "Required before going live:"
+msgstr "Påkrævet inden du går live:"
+
+msgid "You must add this site's domain to your whitelist at aldersverificering.dk before age verification will work. Without this step, all verification attempts will be rejected."
+msgstr "Du skal tilføje dette sites domæne til din hvidliste på aldersverificering.dk, inden aldersverificering vil fungere. Uden dette trin vil alle verificeringsforsøg blive afvist."
+
+msgid "Add the domain exactly as it appears in your store's URL. For this site that will be: %s"
+msgstr "Tilføj domænet præcis som det vises i din butiks URL. For dette site vil det være: %s"
+
+msgid "Configure Domains"
+msgstr "Konfigurér domæner"
+
+# ── Save button ───────────────────────────────────────────────────────────────
+
+msgid "Save Settings"
+msgstr "Gem indstillinger"
+
+# ── Onboarding guide ──────────────────────────────────────────────────────────
+
+msgid "Quick Start Guide"
+msgstr "Hurtig startguide"
+
+msgid "Follow these steps to set up and go live with age verification."
+msgstr "Følg disse trin for at opsætte og gå live med aldersverificering."
+
+msgid "Hide guide"
+msgstr "Skjul guide"
+
+msgid "Show guide"
+msgstr "Vis guide"
+
+msgid "Create your account"
+msgstr "Opret din konto"
+
+msgid "Sign up at aldersverificering.dk to get access to your API keys and domain settings."
+msgstr "Opret en konto på aldersverificering.dk for at få adgang til dine API-nøgler og domæneindstillinger."
+
+msgid "Create account"
+msgstr "Opret konto"
+
+msgid "Get your test key"
+msgstr "Hent din testnøgle"
+
+msgid "Copy your Test Public Key (starts with pk_test_) from your account. Paste it into the Test Public Key field above."
+msgstr "Kopiér din Test Public Key (starter med pk_test_) fra din konto. Indsæt den i Test Public Key-feltet ovenfor."
+
+msgid "Get API keys"
+msgstr "Hent API-nøgler"
+
+msgid "Configure your domain"
+msgstr "Konfigurér dit domæne"
+
+msgid "Add %s to the domain whitelist. Without this, verification will always fail."
+msgstr "Tilføj %s til domænehvidlisten. Uden dette vil verificering altid mislykkes."
+
+msgid "Configure domains"
+msgstr "Konfigurér domæner"
+
+msgid "Test the age gate"
+msgstr "Test aldersporten"
+
+msgid "Make sure Test mode is selected above and the plugin is enabled. Open a product page, add to cart, and attempt checkout — the age verification popup should appear."
+msgstr "Sørg for at Testtilstand er valgt ovenfor og at pluginnet er aktiveret. Åbn en produktside, tilføj til kurv, og forsøg at gå til kassen — aldersverificerings-popup'en bør vises."
+
+msgid "Go live"
+msgstr "Gå live"
+
+msgid "When testing looks good, upgrade your account, add your Production Public Key (pk_live_), and switch the environment toggle to Production."
+msgstr "Når testen ser god ud, opgradering din konto, tilføj din Produktions Public Key (pk_live_), og skift miljøtoggle til Produktion."
+
+msgid "Upgrade account"
+msgstr "Opgrader konto"
+
+msgid "🚀 Ready to go live?"
+msgstr "🚀 Klar til at gå live?"
+
+msgid "When you're ready for real age verification:"
+msgstr "Når du er klar til rigtig aldersverificering:"
+
+msgid "Get your Production Public Key (starts with pk_live_) from your account page."
+msgstr "Hent din Produktions Public Key (starter med pk_live_) fra din kontoside."
+
+msgid "Paste it into the Production Public Key field above and save."
+msgstr "Indsæt den i Produktions Public Key-feltet ovenfor og gem."
+
+msgid "Switch the environment toggle to Production and save again."
+msgstr "Skift miljøtoggle til Produktion og gem igen."
+
+msgid "Manage subscription"
+msgstr "Administrér abonnement"
+
+# ── Inline key validation (JS-side strings, output via wp_json_encode) ────────
+
+msgid "must start with"
+msgstr "skal starte med"
+
+msgid "appears too short — please check your key"
+msgstr "ser for kort ud — tjek venligst din nøgle"
+
+# ── Save validation errors ────────────────────────────────────────────────────
+
+msgid "Test key must start with pk_test_"
+msgstr "Testnøgle skal starte med pk_test_"
+
+msgid "Production key must start with pk_live_"
+msgstr "Produktionsnøgle skal starte med pk_live_"
+
+msgid "You cannot enable Production mode without a Production Public Key. Please add a pk_live_ key or switch back to Test mode."
+msgstr "Du kan ikke aktivere Produktionstilstand uden en Produktions Public Key. Du skal tilføje en pk_live_-nøgle eller skifte tilbage til Testtilstand."
+
+msgid "Security check failed."
+msgstr "Sikkerhedstjek mislykkedes."
+
+# ── Admin notice ──────────────────────────────────────────────────────────────
+
 msgid "<strong>UNQVerify Age Verification:</strong> No public key is configured. <a href=\"%s\">Add your key in WooCommerce &rarr; Settings &rarr; UNQVerify</a>."
 msgstr "<strong>UNQVerify Aldersverificering:</strong> Ingen public key er konfigureret. <a href=\"%s\">Tilføj din nøgle under WooCommerce &rarr; Indstillinger &rarr; UNQVerify</a>."
 
-# Callback page error.
+# ── Callback page error ───────────────────────────────────────────────────────
+
 msgid "Age verification is not configured."
 msgstr "Aldersverificering er ikke konfigureret."
