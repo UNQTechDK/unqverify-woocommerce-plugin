@@ -7,6 +7,7 @@
  * Author:      UNQTech
  * Author URI:  https://unqtech.dk
  * Text Domain: unq-age-verification
+ * Domain Path: /languages
  * Requires at least: 6.0
  * Requires PHP: 7.4
  * WC requires at least: 7.0
@@ -36,6 +37,7 @@ require_once UNQ_AGEV_PATH . 'includes/class-unq-jwt-validator.php';
  *   public_key   → string  (pk_test_* or pk_live_*)
  *   required_age → int     (minimum verified age, 1–120)
  *   mode         → 'popup' | 'redirect'
+ *   locale       → 'auto' | 'en' | 'da'
  *
  * @param  string $key
  * @return mixed
@@ -51,10 +53,99 @@ function unq_agev_get( $key ) {
         case 'mode':
             $mode = get_option( 'unq_agev_verification_mode', 'popup' );
             return in_array( $mode, array( 'popup', 'redirect' ), true ) ? $mode : 'popup';
+        case 'locale':
+            $locale = get_option( 'unq_agev_locale', 'auto' );
+            return in_array( $locale, array( 'auto', 'en', 'da' ), true ) ? $locale : 'auto';
         default:
             return '';
     }
 }
+
+/**
+ * Resolve the effective customer-facing locale ('en' or 'da').
+ *
+ * Priority:
+ *   1. Merchant setting — 'en' or 'da' selected explicitly.
+ *   2. Auto-detect — inspects the WordPress site language (get_locale()).
+ *      Any locale starting with 'da' maps to Danish; everything else is English.
+ *
+ * This mirrors the Shopify app's `storefrontLocale` / `effective_locale` logic.
+ *
+ * @return string 'en' | 'da'
+ */
+function unq_agev_resolve_locale() {
+    $setting = unq_agev_get( 'locale' );
+    if ( 'en' === $setting ) {
+        return 'en';
+    }
+    if ( 'da' === $setting ) {
+        return 'da';
+    }
+    // Auto-detect from WP site language.
+    $wp_locale = function_exists( 'get_locale' ) ? get_locale() : 'en_US';
+    return ( strpos( strtolower( $wp_locale ), 'da' ) === 0 ) ? 'da' : 'en';
+}
+
+/**
+ * Returns an array of all customer-facing strings for the given locale.
+ *
+ * These strings are merchant-locale-controlled (not visitor-locale), matching
+ * the Shopify app pattern where storefrontLocale is a store setting.
+ * They are intentionally NOT run through __() — WP i18n applies to admin strings.
+ *
+ * @param  string $locale 'en' | 'da'
+ * @param  int    $age    Required age for modal body placeholder.
+ * @return array<string,string>
+ */
+function unq_agev_strings( $locale, $age = 18 ) {
+    $strings = array(
+        'en' => array(
+            'cart_notice'    => 'You must complete age verification before proceeding to checkout.',
+            'expired'        => 'Your age verification has expired. Please verify again to complete your purchase.',
+            'general'        => 'You must complete age verification to complete your purchase.',
+            'verifyPrompt'   => 'Verify age to continue',
+            'verified'       => 'Age verified',
+            'denied'         => 'You do not meet the age requirement for these products.',
+            'cancelled'      => 'Age verification cancelled.',
+            'popupBlocked'   => 'Allow popups on this site to verify your age.',
+            'error'          => 'An error occurred. Please try again.',
+            'modalTitle'     => 'Age verification required',
+            /* translators: %d: minimum required age */
+            'modalBody'      => sprintf( 'This store sells age-restricted products. You must confirm that you are %d years or older to proceed to checkout. This is done securely via MitID and only takes a moment.', $age ),
+            'modalVerifyBtn' => 'Verify age with MitID',
+            'modalCancelBtn' => 'Cancel',
+        ),
+        'da' => array(
+            'cart_notice'    => 'Du skal gennemføre aldersverificering, inden du kan gå til kassen.',
+            'expired'        => 'Din aldersverificering er udløbet. Verificér venligst igen for at gennemføre dit køb.',
+            'general'        => 'Du skal gennemføre aldersverificering for at gennemføre dit køb.',
+            'verifyPrompt'   => 'Bekræft alder for at fortsætte',
+            'verified'       => 'Alder bekræftet',
+            'denied'         => 'Du opfylder ikke alderskravet for disse varer.',
+            'cancelled'      => 'Aldersverificering annulleret.',
+            'popupBlocked'   => 'Tillad pop-up vinduer på dette site for at bekræfte din alder.',
+            'error'          => 'Der opstod en fejl. Prøv igen.',
+            'modalTitle'     => 'Aldersverificering påkrævet',
+            /* translators: %d: minimum required age */
+            'modalBody'      => sprintf( 'Denne butik sælger aldersbegrænsede varer. Du skal bekræfte, at du er %d år eller ældre, for at gå til kassen. Det sker sikkert via MitID og tager kun et øjeblik.', $age ),
+            'modalVerifyBtn' => 'Bekræft alder med MitID',
+            'modalCancelBtn' => 'Annuller',
+        ),
+    );
+    return isset( $strings[ $locale ] ) ? $strings[ $locale ] : $strings['en'];
+}
+
+// ---------------------------------------------------------------------------
+// Load plugin textdomain — enables da_DK.po/.mo for admin UI strings.
+// ---------------------------------------------------------------------------
+
+add_action( 'plugins_loaded', function () {
+    load_plugin_textdomain(
+        'unq-age-verification',
+        false,
+        dirname( plugin_basename( __FILE__ ) ) . '/languages/'
+    );
+} );
 
 // ---------------------------------------------------------------------------
 // WooCommerce Settings tab — WooCommerce > Settings > UNQVerify.
@@ -126,6 +217,19 @@ function unq_agev_settings_fields() {
             'options'  => array(
                 'popup'    => __( 'Popup (recommended)', 'unq-age-verification' ),
                 'redirect' => __( 'Full-page redirect', 'unq-age-verification' ),
+            ),
+        ),
+        array(
+            'id'       => 'unq_agev_locale',
+            'type'     => 'select',
+            'title'    => __( 'Popup Language', 'unq-age-verification' ),
+            'desc'     => __( 'Language shown to customers in the age verification popup and notices. Auto-detect uses the WordPress site language.', 'unq-age-verification' ),
+            'desc_tip' => false,
+            'default'  => 'auto',
+            'options'  => array(
+                'auto' => __( 'Auto-detect (uses WordPress site language)', 'unq-age-verification' ),
+                'en'   => __( 'English', 'unq-age-verification' ),
+                'da'   => __( 'Dansk', 'unq-age-verification' ),
             ),
         ),
         array(
@@ -352,10 +456,8 @@ add_action( 'template_redirect', function () {
 add_action( 'woocommerce_before_cart', function () {
     // phpcs:ignore WordPress.Security.NonceVerification.Recommended
     if ( ! empty( $_GET['unqverify_required'] ) ) {
-        wc_add_notice(
-            esc_html__( 'Du skal gennemføre aldersverificering, inden du kan gå til kassen.', 'unq-age-verification' ),
-            'notice'
-        );
+        $s = unq_agev_strings( unq_agev_resolve_locale() );
+        wc_add_notice( esc_html( $s['cart_notice'] ), 'notice' );
     }
 } );
 
@@ -378,9 +480,8 @@ add_action( 'woocommerce_store_api_checkout_order_processed', function ( $order 
     $result = UNQ_JWT_Validator::validate( $token, unq_agev_get( 'required_age' ) );
 
     if ( is_wp_error( $result ) ) {
-        $message = $result->get_error_code() === 'unqverify_expired'
-            ? __( 'Din aldersverificering er udløbet. Verificér venligst igen for at gennemføre dit køb.', 'unq-age-verification' )
-            : __( 'Du skal gennemføre aldersverificering for at gennemføre dit køb.', 'unq-age-verification' );
+        $s       = unq_agev_strings( unq_agev_resolve_locale() );
+        $message = $result->get_error_code() === 'unqverify_expired' ? $s['expired'] : $s['general'];
 
         // RouteException is the correct way to abort a Store API request with
         // a user-visible error. Class is always available when WC Blocks is
@@ -413,9 +514,8 @@ add_action( 'woocommerce_checkout_process', function () {
     $result = UNQ_JWT_Validator::validate( $token, unq_agev_get( 'required_age' ) );
 
     if ( is_wp_error( $result ) ) {
-        $message = $result->get_error_code() === 'unqverify_expired'
-            ? __( 'Din aldersverificering er udløbet. Verificér venligst igen for at gennemføre dit køb.', 'unq-age-verification' )
-            : __( 'Du skal gennemføre aldersverificering for at gennemføre dit køb.', 'unq-age-verification' );
+        $s       = unq_agev_strings( unq_agev_resolve_locale() );
+        $message = $result->get_error_code() === 'unqverify_expired' ? $s['expired'] : $s['general'];
 
         wc_add_notice( esc_html( $message ), 'error' );
     }
@@ -456,22 +556,7 @@ add_action( 'wp_enqueue_scripts', function () {
             array_merge( $shared_data, array(
                 'checkoutUrl' => wc_get_checkout_url(),
                 'nonce'       => wp_create_nonce( 'unq_age_cart' ),
-                'i18n'        => array(
-                    'verifyPrompt'  => __( 'Bekræft alder for at fortsætte', 'unq-age-verification' ),
-                    'verified'      => __( 'Alder bekræftet', 'unq-age-verification' ),
-                    'denied'        => __( 'Du opfylder ikke alderskravet for disse varer.', 'unq-age-verification' ),
-                    'cancelled'     => __( 'Aldersverificering annulleret.', 'unq-age-verification' ),
-                    'popupBlocked'  => __( 'Tillad pop-up vinduer på dette site for at bekræfte din alder.', 'unq-age-verification' ),
-                    'error'         => __( 'Der opstod en fejl. Prøv igen.', 'unq-age-verification' ),
-                    'modalTitle'    => __( 'Aldersverificering påkrævet', 'unq-age-verification' ),
-                    'modalBody'     => sprintf(
-                        /* translators: %d: minimum required age */
-                        __( 'Denne butik sælger aldersbegrænsede varer. Du skal bekræfte, at du er %d år eller ældre, for at gå til kassen. Det sker sikkert via MitID og tager kun et øjeblik.', 'unq-age-verification' ),
-                        unq_agev_get( 'required_age' )
-                    ),
-                    'modalVerifyBtn' => __( 'Bekræft alder med MitID', 'unq-age-verification' ),
-                    'modalCancelBtn' => __( 'Annuller', 'unq-age-verification' ),
-                ),
+                'i18n'        => unq_agev_strings( unq_agev_resolve_locale(), unq_agev_get( 'required_age' ) ),
             ) )
         );
     }

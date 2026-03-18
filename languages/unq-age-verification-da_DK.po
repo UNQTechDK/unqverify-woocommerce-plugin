@@ -1,0 +1,86 @@
+# Danish translation for UNQVerify Age Verification for WooCommerce.
+# Copyright (C) 2024 UNQTech
+# This file is distributed under the same license as the plugin.
+msgid ""
+msgstr ""
+"Project-Id-Version: UNQVerify Age Verification for WooCommerce 0.2.0\n"
+"Report-Msgid-Bugs-To: support@aldersverificering.dk\n"
+"POT-Creation-Date: 2026-03-18T00:00:00+00:00\n"
+"PO-Revision-Date: 2026-03-18T00:00:00+00:00\n"
+"Last-Translator: UNQTech <support@aldersverificering.dk>\n"
+"Language-Team: Danish\n"
+"Language: da_DK\n"
+"MIME-Version: 1.0\n"
+"Content-Type: text/plain; charset=UTF-8\n"
+"Content-Transfer-Encoding: 8bit\n"
+"Plural-Forms: nplurals=2; plural=(n != 1);\n"
+
+# Settings tab label.
+msgid "UNQVerify"
+msgstr "UNQVerify"
+
+# Settings section title.
+msgid "UNQVerify Age Verification"
+msgstr "UNQVerify Aldersverificering"
+
+# Settings section description.
+msgid "MitID-based age verification for WooCommerce checkout. Get your API key from the <a href=\"%s\" target=\"_blank\" rel=\"noopener\">UNQVerify dashboard</a>."
+msgstr "MitID-baseret aldersverificering til WooCommerce kassen. Hent din API-nøgle fra <a href=\"%s\" target=\"_blank\" rel=\"noopener\">UNQVerify dashboard</a>."
+
+# Enable setting label.
+msgid "Enable"
+msgstr "Aktivér"
+
+msgid "Enable age verification on checkout"
+msgstr "Aktivér aldersverificering ved kassen"
+
+# Public key setting.
+msgid "Public Key"
+msgstr "Public Key"
+
+msgid "Your UNQVerify public key. Use <code>pk_test_*</code> for the test environment or <code>pk_live_*</code> for production — the key prefix determines the environment automatically."
+msgstr "Din UNQVerify public key. Brug <code>pk_test_*</code> til testmiljøet eller <code>pk_live_*</code> til produktion — nøglepræfikset bestemmer automatisk miljøet."
+
+# Required age setting.
+msgid "Required Age"
+msgstr "Påkrævet alder"
+
+msgid "Minimum age (in years) a customer must have verified to complete a purchase."
+msgstr "Minimumsalder (i år) som en kunde skal have verificeret for at gennemføre et køb."
+
+# Verification mode setting.
+msgid "Verification Mode"
+msgstr "Verifikationstilstand"
+
+msgid "<strong>Popup</strong> — MitID opens in a small popup; the customer stays on your page (recommended).<br><strong>Full-page redirect</strong> — The browser navigates to MitID and returns after verification. Use this if your customers frequently have popups blocked."
+msgstr "<strong>Popup</strong> — MitID åbner i et lille popup-vindue; kunden forbliver på din side (anbefalet).<br><strong>Fuld-side redirect</strong> — Browseren navigerer til MitID og vender tilbage efter verificering. Brug dette hvis dine kunder ofte har popups blokeret."
+
+msgid "Popup (recommended)"
+msgstr "Popup (anbefalet)"
+
+msgid "Full-page redirect"
+msgstr "Fuld-side redirect"
+
+# Popup language setting.
+msgid "Popup Language"
+msgstr "Popup-sprog"
+
+msgid "Language shown to customers in the age verification popup and notices. Auto-detect uses the WordPress site language."
+msgstr "Sprog vist til kunder i aldersverificerings-popup og beskeder. Auto-detektering bruger WordPress-sproget."
+
+msgid "Auto-detect (uses WordPress site language)"
+msgstr "Auto-detektering (bruger WordPress-sproget)"
+
+msgid "English"
+msgstr "Engelsk"
+
+msgid "Dansk"
+msgstr "Dansk"
+
+# Admin notice.
+msgid "<strong>UNQVerify Age Verification:</strong> No public key is configured. <a href=\"%s\">Add your key in WooCommerce &rarr; Settings &rarr; UNQVerify</a>."
+msgstr "<strong>UNQVerify Aldersverificering:</strong> Ingen public key er konfigureret. <a href=\"%s\">Tilføj din nøgle under WooCommerce &rarr; Indstillinger &rarr; UNQVerify</a>."
+
+# Callback page error.
+msgid "Age verification is not configured."
+msgstr "Aldersverificering er ikke konfigureret."

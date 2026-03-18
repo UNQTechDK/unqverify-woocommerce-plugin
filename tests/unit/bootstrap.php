@@ -88,8 +88,66 @@ if ( ! function_exists( 'unq_agev_get' ) ) {
             case 'mode':
                 $mode = get_option( 'unq_agev_verification_mode', 'popup' );
                 return in_array( $mode, array( 'popup', 'redirect' ), true ) ? $mode : 'popup';
+            case 'locale':
+                $locale = get_option( 'unq_agev_locale', 'auto' );
+                return in_array( $locale, array( 'auto', 'en', 'da' ), true ) ? $locale : 'auto';
             default:
                 return '';
         }
+    }
+}
+
+// Mirror the real unq_agev_resolve_locale() and unq_agev_strings() from the
+// main plugin file so they are available to SettingsTest without loading
+// the full plugin (which registers WP/WC hooks we haven't stubbed).
+if ( ! function_exists( 'unq_agev_resolve_locale' ) ) {
+    function unq_agev_resolve_locale() {
+        $setting = unq_agev_get( 'locale' );
+        if ( 'en' === $setting ) {
+            return 'en';
+        }
+        if ( 'da' === $setting ) {
+            return 'da';
+        }
+        $wp_locale = function_exists( 'get_locale' ) ? get_locale() : 'en_US';
+        return ( strpos( strtolower( $wp_locale ), 'da' ) === 0 ) ? 'da' : 'en';
+    }
+}
+
+if ( ! function_exists( 'unq_agev_strings' ) ) {
+    function unq_agev_strings( $locale, $age = 18 ) {
+        $strings = array(
+            'en' => array(
+                'cart_notice'    => 'You must complete age verification before proceeding to checkout.',
+                'expired'        => 'Your age verification has expired. Please verify again to complete your purchase.',
+                'general'        => 'You must complete age verification to complete your purchase.',
+                'verifyPrompt'   => 'Verify age to continue',
+                'verified'       => 'Age verified',
+                'denied'         => 'You do not meet the age requirement for these products.',
+                'cancelled'      => 'Age verification cancelled.',
+                'popupBlocked'   => 'Allow popups on this site to verify your age.',
+                'error'          => 'An error occurred. Please try again.',
+                'modalTitle'     => 'Age verification required',
+                'modalBody'      => sprintf( 'This store sells age-restricted products. You must confirm that you are %d years or older to proceed to checkout. This is done securely via MitID and only takes a moment.', $age ),
+                'modalVerifyBtn' => 'Verify age with MitID',
+                'modalCancelBtn' => 'Cancel',
+            ),
+            'da' => array(
+                'cart_notice'    => 'Du skal gennemføre aldersverificering, inden du kan gå til kassen.',
+                'expired'        => 'Din aldersverificering er udløbet. Verificér venligst igen for at gennemføre dit køb.',
+                'general'        => 'Du skal gennemføre aldersverificering for at gennemføre dit køb.',
+                'verifyPrompt'   => 'Bekræft alder for at fortsætte',
+                'verified'       => 'Alder bekræftet',
+                'denied'         => 'Du opfylder ikke alderskravet for disse varer.',
+                'cancelled'      => 'Aldersverificering annulleret.',
+                'popupBlocked'   => 'Tillad pop-up vinduer på dette site for at bekræfte din alder.',
+                'error'          => 'Der opstod en fejl. Prøv igen.',
+                'modalTitle'     => 'Aldersverificering påkrævet',
+                'modalBody'      => sprintf( 'Denne butik sælger aldersbegrænsede varer. Du skal bekræfte, at du er %d år eller ældre, for at gå til kassen. Det sker sikkert via MitID og tager kun et øjeblik.', $age ),
+                'modalVerifyBtn' => 'Bekræft alder med MitID',
+                'modalCancelBtn' => 'Annuller',
+            ),
+        );
+        return isset( $strings[ $locale ] ) ? $strings[ $locale ] : $strings['en'];
     }
 }

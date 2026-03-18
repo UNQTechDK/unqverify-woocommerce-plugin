@@ -20,6 +20,18 @@ MitID-based age verification for WooCommerce checkout using the [UNQVerify SDK](
 
 ---
 
+## Settings
+
+| Setting | Option | Values | Description |
+|---|---|---|---|
+| Enable Age Verification | `unq_agev_enabled` | `yes` / `no` | Activate or deactivate the gate at checkout |
+| Public Key | `unq_agev_public_key` | string | Your UNQVerify public key |
+| Required Age | `unq_agev_required_age` | integer ≥ 1 | Minimum age required (default: 18) |
+| Verification Mode | `unq_agev_verification_mode` | `popup` / `redirect` | How the MitID flow opens |
+| Popup Language | `unq_agev_locale` | `auto` / `en` / `da` | Language used in the customer-facing popup. `auto` inherits the WP site language (Danish for `da_DK`, English otherwise). |
+
+---
+
 ## Development
 
 ### Running tests
@@ -28,8 +40,14 @@ MitID-based age verification for WooCommerce checkout using the [UNQVerify SDK](
 # Install PHP dependencies
 composer install
 
+# Install JS dev dependencies (gettext compiler, etc.)
+pnpm install
+
 # Run unit tests
 pnpm test
+
+# Compile .po → .mo translation files
+pnpm make:mo
 ```
 
 ### Unit test coverage
@@ -59,3 +77,11 @@ pnpm test
 | 21 | `SettingsTest` | `test_required_age_stored_as_zero_is_clamped_to_one` | Stored value `'0'` → clamped to `1` via `max(1, …)` |
 | 22 | `SettingsTest` | `test_invalid_mode_falls_back_to_popup` | Unknown mode string → falls back to `'popup'` |
 | 23 | `SettingsTest` | `test_unknown_key_returns_empty_string` | Any unrecognised key → `''`; `get_option` never called |
+| 24 | `SettingsTest` | `test_locale_default_returns_auto` | `unq_agev_get('locale')` default → `'auto'` |
+| 25 | `SettingsTest` | `test_invalid_locale_falls_back_to_auto` | Unknown locale value → falls back to `'auto'` |
+| 26 | `SettingsTest` | `test_strings_returns_english_for_en` | `unq_agev_strings('en')` → English copy |
+| 27 | `SettingsTest` | `test_strings_returns_danish_for_da` | `unq_agev_strings('da')` → Danish copy |
+| 28 | `SettingsTest` | `test_strings_falls_back_to_en_for_unknown_locale` | Unknown locale → falls back to EN strings |
+| 29 | `SettingsTest` | `test_strings_interpolates_age_in_modal_body` | Age value (21) appears in `modalBody` string |
+| 30 | `SettingsTest` | `test_resolve_locale_returns_en_when_set_to_en` | Setting `'en'` → `unq_agev_resolve_locale()` returns `'en'` |
+| 31 | `SettingsTest` | `test_resolve_locale_returns_da_when_set_to_da` | Setting `'da'` → `unq_agev_resolve_locale()` returns `'da'` |

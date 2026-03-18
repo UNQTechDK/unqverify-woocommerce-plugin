@@ -83,4 +83,103 @@ class SettingsTest extends TestCase {
 
         $this->assertSame( '', $result );
     }
+
+    // ------------------------------------------------------------------
+    // 24. 'locale' default is 'auto' when option not set
+    // ------------------------------------------------------------------
+
+    public function test_locale_default_returns_auto(): void {
+        Functions\when( 'get_option' )->alias( fn( $opt, $def = null ) => $def );
+
+        $this->assertSame( 'auto', unq_agev_get( 'locale' ) );
+    }
+
+    // ------------------------------------------------------------------
+    // 25. 'locale' rejects unknown value → falls back to 'auto'
+    // ------------------------------------------------------------------
+
+    public function test_invalid_locale_falls_back_to_auto(): void {
+        Functions\when( 'get_option' )->alias( function ( $opt, $def = null ) {
+            if ( 'unq_agev_locale' === $opt ) {
+                return 'fr';
+            }
+            return $def;
+        } );
+
+        $this->assertSame( 'auto', unq_agev_get( 'locale' ) );
+    }
+
+    // ------------------------------------------------------------------
+    // 26. unq_agev_strings() returns EN strings for 'en'
+    // ------------------------------------------------------------------
+
+    public function test_strings_returns_english_for_en(): void {
+        $s = unq_agev_strings( 'en', 18 );
+
+        $this->assertSame( 'Verify age to continue', $s['verifyPrompt'] );
+        $this->assertSame( 'Age verified', $s['verified'] );
+        $this->assertSame( 'Verify age with MitID', $s['modalVerifyBtn'] );
+    }
+
+    // ------------------------------------------------------------------
+    // 27. unq_agev_strings() returns DA strings for 'da'
+    // ------------------------------------------------------------------
+
+    public function test_strings_returns_danish_for_da(): void {
+        $s = unq_agev_strings( 'da', 18 );
+
+        $this->assertSame( 'Bekræft alder for at fortsætte', $s['verifyPrompt'] );
+        $this->assertSame( 'Alder bekræftet', $s['verified'] );
+        $this->assertSame( 'Bekræft alder med MitID', $s['modalVerifyBtn'] );
+    }
+
+    // ------------------------------------------------------------------
+    // 28. unq_agev_strings() falls back to EN for unknown locale
+    // ------------------------------------------------------------------
+
+    public function test_strings_falls_back_to_en_for_unknown_locale(): void {
+        $s = unq_agev_strings( 'fr', 18 );
+
+        $this->assertSame( 'Verify age to continue', $s['verifyPrompt'] );
+    }
+
+    // ------------------------------------------------------------------
+    // 29. unq_agev_strings() interpolates age into modalBody
+    // ------------------------------------------------------------------
+
+    public function test_strings_interpolates_age_in_modal_body(): void {
+        $s = unq_agev_strings( 'en', 21 );
+
+        $this->assertStringContainsString( '21', $s['modalBody'] );
+    }
+
+    // ------------------------------------------------------------------
+    // 30. unq_agev_resolve_locale() returns 'en' when setting is 'en'
+    // ------------------------------------------------------------------
+
+    public function test_resolve_locale_returns_en_when_set_to_en(): void {
+        Functions\when( 'get_option' )->alias( function ( $opt, $def = null ) {
+            if ( 'unq_agev_locale' === $opt ) {
+                return 'en';
+            }
+            return $def;
+        } );
+
+        $this->assertSame( 'en', unq_agev_resolve_locale() );
+    }
+
+    // ------------------------------------------------------------------
+    // 31. unq_agev_resolve_locale() returns 'da' when setting is 'da'
+    // ------------------------------------------------------------------
+
+    public function test_resolve_locale_returns_da_when_set_to_da(): void {
+        Functions\when( 'get_option' )->alias( function ( $opt, $def = null ) {
+            if ( 'unq_agev_locale' === $opt ) {
+                return 'da';
+            }
+            return $def;
+        } );
+
+        $this->assertSame( 'da', unq_agev_resolve_locale() );
+    }
 }
