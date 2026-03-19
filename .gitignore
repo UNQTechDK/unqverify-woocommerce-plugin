@@ -1,10 +1,20 @@
 # See https://help.github.com/articles/ignoring-files/ for more about ignoring files.
 
-# PHP / Composer
+# Agent skills
+.agents/
+skills-lock.json
+
+# Local dev environment
+.wp-env.json
+
+# Test cache
+.phpunit.result.cache
+
+# PHP dependencies (reproducible via composer install)
 /vendor/
 composer.lock
 
-# dependencies
+# Node dependencies
 /node_modules
 /.pnp
 .pnp.*
@@ -13,16 +23,17 @@ composer.lock
 !.yarn/plugins
 !.yarn/releases
 !.yarn/versions
+pnpm-lock.yaml
+package.json
 
-# testing
+# PHPUnit config (local dev only — WP.org reviewers don't need it)
+phpunit.xml.dist
+
+# Build scripts (local dev only)
+/scripts/
+
+# Test results
 /coverage
-
-# next.js
-/.next/
-/out/
-
-# production
-/build
 
 # misc
 .DS_Store

@@ -1,0 +1,35 @@
+name: Release ZIP
+
+on:
+  push:
+    tags:
+      - "v*"
+
+permissions:
+  contents: write
+
+jobs:
+  zip:
+    runs-on: ubuntu-latest
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Build plugin ZIP
+        run: |
+          zip -r aldersverificering-woocommerce.zip aldersverificering-woocommerce/ \
+            --exclude "aldersverificering-woocommerce/.github/*" \
+            --exclude "aldersverificering-woocommerce/tests/*" \
+            --exclude "aldersverificering-woocommerce/node_modules/*" \
+            --exclude "aldersverificering-woocommerce/*.lock" \
+            --exclude "aldersverificering-woocommerce/package.json" \
+            --exclude "aldersverificering-woocommerce/pnpm-lock.yaml" \
+            --exclude "aldersverificering-woocommerce/vitest.config*" \
+            --exclude "aldersverificering-woocommerce/phpunit.xml*" \
+            --exclude "aldersverificering-woocommerce/MANUAL_TEST_SUITE.md"
+
+      - name: Create GitHub Release
+        uses: softprops/action-gh-release@v2
+        with:
+          files: aldersverificering-woocommerce.zip
+          generate_release_notes: true
