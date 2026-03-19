@@ -23,7 +23,7 @@ define( 'UNQ_AGEV_URL',         plugin_dir_url( __FILE__ ) );
 define( 'UNQ_AGEV_SDK_URL',     'https://unpkg.com/@unqtech/age-verification-mitid@0.4.3/dist/index.umd.js' );
 // SRI hash for the SDK — update this every time you publish a new SDK version.
 // Compute: curl -sL "<UNQ_AGEV_SDK_URL>" | openssl dgst -sha384 -binary | openssl base64 -A
-define( 'UNQ_AGEV_SDK_SRI',     '' ); // TODO: fill in after publishing
+define( 'UNQ_AGEV_SDK_SRI',     'sha384-tW93lDADwO+RhSpCCOTre3DUwppRX5zOFKVMVBYsxdEuFfFPQK8/pAU4v+GtfERK' );
 define( 'UNQ_AGEV_COOKIE_NAME', 'unqverify_token' );
 
 require_once UNQ_AGEV_PATH . 'includes/class-unq-jwt-validator.php';
@@ -178,11 +178,13 @@ function unq_agev_cart_is_gated() {
 /**
  * Returns the effective minimum required age for the current cart.
  *
- * - 'all'           → the store-wide required_age setting.
- * - 'selected_only' → the maximum of each gated cart item's `_unq_agev_required_age`
- *                     meta (falling back to the store-wide setting per item).
- *                     Returns the store-wide default when the cart is empty or
- *                     contains no gated items.
+ * - 'all'           → the maximum effective age across all cart items, using
+ *                     product/category overrides where set, falling back to
+ *                     the store-wide default per item.
+ * - 'selected_only' → same logic, but only gated items are considered. Returns
+ *                     the store-wide default when no gated items are in the cart.
+ *
+ * Per-item age is resolved by unq_agev_effective_product_age().
  *
  * @return int
  */
@@ -192,12 +194,8 @@ function unq_agev_cart_required_age() {
         return $cache;
     }
 
-    if ( 'all' === unq_agev_get( 'targeting' ) ) {
-        $cache = unq_agev_get( 'required_age' );
-        return $cache;
-    }
-
-    $global = unq_agev_get( 'required_age' );
+    $global    = unq_agev_get( 'required_age' );
+    $targeting = unq_agev_get( 'targeting' );
 
     if ( ! function_exists( 'WC' ) || is_null( WC()->cart ) ) {
         $cache = $global;
@@ -210,29 +208,86 @@ function unq_agev_cart_required_age() {
         if ( ! $product_id ) {
             continue;
         }
-        $is_gated = false;
-        if ( 'yes' === get_post_meta( $product_id, '_unq_agev_required', true ) ) {
-            $is_gated = true;
-        } else {
-            $terms = get_the_terms( $product_id, 'product_cat' );
-            if ( is_array( $terms ) ) {
-                foreach ( $terms as $term ) {
-                    if ( 'yes' === get_term_meta( $term->term_id, 'unq_agev_category_required', true ) ) {
-                        $is_gated = true;
-                        break;
+
+        // For 'selected_only' mode, skip products that are not explicitly gated.
+        if ( 'selected_only' === $targeting ) {
+            $is_gated = false;
+            if ( 'yes' === get_post_meta( $product_id, '_unq_agev_required', true ) ) {
+                $is_gated = true;
+            } else {
+                $terms = get_the_terms( $product_id, 'product_cat' );
+                if ( is_array( $terms ) ) {
+                    foreach ( $terms as $term ) {
+                        if ( 'yes' === get_term_meta( $term->term_id, 'unq_agev_category_required', true ) ) {
+                            $is_gated = true;
+                            break;
+                        }
                     }
                 }
             }
+            if ( ! $is_gated ) {
+                continue;
+            }
         }
-        if ( ! $is_gated ) {
-            continue;
-        }
-        $override = (int) get_post_meta( $product_id, '_unq_agev_required_age', true );
-        $ages[]   = ( $override > 0 ) ? $override : $global;
+
+        $ages[] = unq_agev_effective_product_age( $product_id );
     }
 
     $cache = empty( $ages ) ? $global : max( $ages );
     return $cache;
+}
+
+/**
+ * Returns the effective minimum required age for a single product.
+ *
+ * Resolution order (most specific wins):
+ *   1. Product-level override — `_unq_agev_required_age` post meta, if > 0.
+ *   2. Category-level age    — `unq_agev_category_required_age` on each *gated*
+ *                              `product_cat` term the product belongs to;
+ *                              the maximum across all gated categories is used.
+ *   3. Store-wide default    — `unq_agev_get( 'required_age' )`.
+ *
+ * Results are memoized per product for the lifetime of the request.
+ *
+ * @param int $product_id
+ * @return int
+ */
+function unq_agev_effective_product_age( $product_id ) {
+    static $cache = array();
+    $product_id = (int) $product_id;
+    if ( array_key_exists( $product_id, $cache ) ) {
+        return $cache[ $product_id ];
+    }
+
+    // 1. Product-level override.
+    $product_override = (int) get_post_meta( $product_id, '_unq_agev_required_age', true );
+    if ( $product_override > 0 ) {
+        $cache[ $product_id ] = $product_override;
+        return $cache[ $product_id ];
+    }
+
+    // 2. Max age across gated categories this product belongs to.
+    $cat_ages = array();
+    $terms    = get_the_terms( $product_id, 'product_cat' );
+    if ( is_array( $terms ) ) {
+        foreach ( $terms as $term ) {
+            if ( 'yes' !== get_term_meta( $term->term_id, 'unq_agev_category_required', true ) ) {
+                continue;
+            }
+            $cat_age = (int) get_term_meta( $term->term_id, 'unq_agev_category_required_age', true );
+            if ( $cat_age > 0 ) {
+                $cat_ages[] = $cat_age;
+            }
+        }
+    }
+    if ( ! empty( $cat_ages ) ) {
+        $cache[ $product_id ] = max( $cat_ages );
+        return $cache[ $product_id ];
+    }
+
+    // 3. Store-wide default.
+    $cache[ $product_id ] = unq_agev_get( 'required_age' );
+    return $cache[ $product_id ];
 }
 
 /**
@@ -334,9 +389,20 @@ add_filter( 'woocommerce_settings_tabs_array', function ( $tabs ) {
 // Settings page CSS — enqueued only when on the plugin's own tab.
 // ---------------------------------------------------------------------------
 
-add_action( 'admin_enqueue_scripts', function () {
+add_action( 'admin_enqueue_scripts', function ( $hook ) {
+    // Load on: our settings tab, the products list, product edit screen,
+    // and the product category term list/edit screens.
     // phpcs:ignore WordPress.Security.NonceVerification.Recommended
-    if ( ! isset( $_GET['tab'] ) || 'unq_agev' !== sanitize_key( $_GET['tab'] ) ) {
+    $on_settings     = isset( $_GET['tab'] ) && 'unq_agev' === sanitize_key( $_GET['tab'] );
+    $on_product_list = ( 'edit.php' === $hook && isset( $_GET['post_type'] ) && 'product' === $_GET['post_type'] );
+    $on_product_edit = ( 'post.php' === $hook || 'post-new.php' === $hook )
+                       && isset( $_GET['post_type'] )
+                           ? 'product' === $_GET['post_type']
+                           : ( isset( $_GET['post'] ) && 'product' === get_post_type( (int) $_GET['post'] ) );
+    $on_cat_screen   = ( 'edit-tags.php' === $hook || 'term.php' === $hook )
+                       && isset( $_GET['taxonomy'] ) && 'product_cat' === $_GET['taxonomy'];
+
+    if ( ! $on_settings && ! $on_product_list && ! $on_product_edit && ! $on_cat_screen ) {
         return;
     }
     wp_enqueue_style(
@@ -943,7 +1009,117 @@ function unq_agev_product_meta_box_callback( $post ) {
     $is_required  = 'yes' === get_post_meta( $post->ID, '_unq_agev_required', true );
     $age_override = (int) get_post_meta( $post->ID, '_unq_agev_required_age', true );
     $global_age   = unq_agev_get( 'required_age' );
+
+    // Compute the base age this product would inherit if no product-level override is set
+    // (i.e. the highest age from any gated category it belongs to, or the global default).
+    $base_age     = $global_age;
+    $base_source  = 'store'; // 'store' or 'category'
+    $terms = get_the_terms( $post->ID, 'product_cat' );
+    if ( is_array( $terms ) ) {
+        $cat_ages = array();
+        foreach ( $terms as $term ) {
+            if ( 'yes' !== get_term_meta( $term->term_id, 'unq_agev_category_required', true ) ) {
+                continue;
+            }
+            $cat_age = (int) get_term_meta( $term->term_id, 'unq_agev_category_required_age', true );
+            if ( $cat_age > 0 ) {
+                $cat_ages[] = $cat_age;
+            }
+        }
+        if ( ! empty( $cat_ages ) ) {
+            $base_age    = max( $cat_ages );
+            $base_source = 'category';
+        }
+    }
+
+    // Build the status indicator shown at the top of the meta box.
+    $targeting     = unq_agev_get( 'targeting' );
+    $effective_age = $age_override > 0 ? $age_override : $base_age;
+
+    // Collect names of gated categories this product belongs to.
+    $gated_cat_names = array();
+    if ( is_array( $terms ) ) {
+        foreach ( $terms as $term ) {
+            if ( 'yes' === get_term_meta( $term->term_id, 'unq_agev_category_required', true ) ) {
+                $gated_cat_names[] = $term->name;
+            }
+        }
+    }
+    $cat_gated = ! empty( $gated_cat_names );
+
+    if ( 'all' === $targeting ) {
+        if ( $age_override > 0 ) {
+            $status_class = 'is-required';
+            $status_label = sprintf(
+                /* translators: %d: minimum verification age */
+                __( 'Override (%d+)', 'unq-age-verification' ),
+                $age_override
+            );
+            $status_desc = __( 'Product-level age override is active. All products are store-wide gated, but this product uses a different age.', 'unq-age-verification' );
+        } elseif ( 'category' === $base_source ) {
+            $status_class = 'is-category';
+            $status_label = sprintf(
+                /* translators: %d: minimum verification age */
+                __( 'Via category (%d+)', 'unq-age-verification' ),
+                $base_age
+            );
+            $cats_str    = implode( ', ', array_slice( $gated_cat_names, 0, 3 ) );
+            $status_desc = sprintf(
+                /* translators: %s: comma-separated list of category names with an age override */
+                __( 'All products are store-wide gated. Age overridden by category: %s.', 'unq-age-verification' ),
+                $cats_str
+            );
+        } else {
+            $status_class = 'is-store-wide';
+            $status_label = sprintf(
+                /* translators: %d: minimum verification age */
+                __( 'Store-wide (%d+)', 'unq-age-verification' ),
+                $effective_age
+            );
+            $status_desc = __( 'All products require age verification. Use the override below to set a different age for this product.', 'unq-age-verification' );
+        }
+    } elseif ( $is_required ) {
+        $status_class = 'is-required';
+        $status_label = sprintf(
+            /* translators: %d: minimum verification age */
+            __( 'Gated (%d+)', 'unq-age-verification' ),
+            $effective_age
+        );
+        if ( $age_override > 0 ) {
+            $status_desc = __( 'Product-level age requirement is active.', 'unq-age-verification' );
+        } elseif ( $cat_gated ) {
+            $cats_str    = implode( ', ', array_slice( $gated_cat_names, 0, 3 ) );
+            $status_desc = sprintf(
+                /* translators: %s: comma-separated list of gated category names */
+                __( 'Age inherited from category: %s.', 'unq-age-verification' ),
+                $cats_str
+            );
+        } else {
+            $status_desc = __( 'Age inherited from store default.', 'unq-age-verification' );
+        }
+    } elseif ( $cat_gated ) {
+        $status_class = 'is-category';
+        $status_label = sprintf(
+            /* translators: %d: minimum verification age */
+            __( 'Via category (%d+)', 'unq-age-verification' ),
+            $effective_age
+        );
+        $cats_str    = implode( ', ', array_slice( $gated_cat_names, 0, 3 ) );
+        $status_desc = sprintf(
+            /* translators: %s: comma-separated list of gated category names */
+            __( 'Gated via: %s. Tick the checkbox below to add a product-level requirement.', 'unq-age-verification' ),
+            $cats_str
+        );
+    } else {
+        $status_class = 'is-none';
+        $status_label = __( 'Not gated', 'unq-age-verification' );
+        $status_desc  = __( 'Not currently age-gated. Tick the checkbox below to add a product-level requirement, or assign the product to a gated category.', 'unq-age-verification' );
+    }
     ?>
+    <div class="unq-mb-status">
+        <span class="unq-col-badge <?php echo esc_attr( $status_class ); ?>"><?php echo esc_html( $status_label ); ?></span>
+        <p class="unq-mb-status-desc"><?php echo esc_html( $status_desc ); ?></p>
+    </div>
     <p style="margin-top:8px;">
         <label>
             <input type="checkbox"
@@ -964,15 +1140,23 @@ function unq_agev_product_meta_box_callback( $post ) {
                name="_unq_agev_required_age"
                value="<?php echo esc_attr( $age_override > 0 ? $age_override : '' ); ?>"
                min="1" max="120" step="1"
-               placeholder="<?php echo esc_attr( $global_age ); ?>"
+               placeholder="<?php echo esc_attr( $base_age ); ?>"
                style="width:70px;">
         <p style="margin:4px 0 0;font-size:11px;color:#94a3b8;">
             <?php
-            printf(
-                /* translators: %d: store-wide required age */
-                esc_html__( 'Leave empty to use the store default (%d years).', 'unq-age-verification' ),
-                $global_age
-            );
+            if ( 'category' === $base_source ) {
+                printf(
+                    /* translators: %d: category minimum age */
+                    esc_html__( 'Leave empty to inherit the category age (%d years).', 'unq-age-verification' ),
+                    $base_age
+                );
+            } else {
+                printf(
+                    /* translators: %d: store-wide required age */
+                    esc_html__( 'Leave empty to inherit the store default (%d years).', 'unq-age-verification' ),
+                    $base_age
+                );
+            }
             ?>
         </p>
     </div>
@@ -1021,6 +1205,7 @@ add_action( 'woocommerce_process_product_meta', function ( $post_id ) {
 // ---------------------------------------------------------------------------
 
 add_action( 'product_cat_add_form_fields', function () {
+    $global_age = unq_agev_get( 'required_age' );
     ?>
     <div class="form-field">
         <label>
@@ -1029,11 +1214,29 @@ add_action( 'product_cat_add_form_fields', function () {
         </label>
         <p><?php esc_html_e( 'When ticked, any cart containing a product from this category will require age verification at checkout.', 'unq-age-verification' ); ?></p>
     </div>
+    <div class="form-field">
+        <label for="unq_agev_cat_age_add"><?php esc_html_e( 'Minimum age for this category', 'unq-age-verification' ); ?></label>
+        <input type="number"
+               id="unq_agev_cat_age_add"
+               name="unq_agev_category_required_age"
+               value=""
+               min="1" max="120" step="1"
+               placeholder="<?php echo esc_attr( $global_age ); ?>">
+        <p><?php
+            printf(
+                /* translators: %d: store-wide required age */
+                esc_html__( 'Leave empty to inherit the store default (%d years). Only applies when age verification is enabled for this category.', 'unq-age-verification' ),
+                $global_age
+            );
+        ?></p>
+    </div>
     <?php
 } );
 
 add_action( 'product_cat_edit_form_fields', function ( $term ) {
-    $required = get_term_meta( $term->term_id, 'unq_agev_category_required', true );
+    $required   = get_term_meta( $term->term_id, 'unq_agev_category_required', true );
+    $cat_age    = (int) get_term_meta( $term->term_id, 'unq_agev_category_required_age', true );
+    $global_age = unq_agev_get( 'required_age' );
     ?>
     <tr class="form-field">
         <th scope="row">
@@ -1050,6 +1253,26 @@ add_action( 'product_cat_edit_form_fields', function ( $term ) {
             <p class="description"><?php esc_html_e( 'When ticked, any cart containing a product from this category will require age verification at checkout.', 'unq-age-verification' ); ?></p>
         </td>
     </tr>
+    <tr class="form-field">
+        <th scope="row">
+            <label for="unq_agev_cat_age_edit"><?php esc_html_e( 'Minimum age for this category', 'unq-age-verification' ); ?></label>
+        </th>
+        <td>
+            <input type="number"
+                   id="unq_agev_cat_age_edit"
+                   name="unq_agev_category_required_age"
+                   value="<?php echo esc_attr( $cat_age > 0 ? $cat_age : '' ); ?>"
+                   min="1" max="120" step="1"
+                   placeholder="<?php echo esc_attr( $global_age ); ?>">
+            <p class="description"><?php
+                printf(
+                    /* translators: %d: store-wide required age */
+                    esc_html__( 'Leave empty to inherit the store default (%d years). Only applies when age verification is enabled for this category.', 'unq-age-verification' ),
+                    $global_age
+                );
+            ?></p>
+        </td>
+    </tr>
     <?php
 } );
 
@@ -1061,8 +1284,16 @@ add_action( 'product_cat_edit_form_fields', function ( $term ) {
 function unq_agev_save_category_meta( $term_id ) {
     if ( isset( $_POST['unq_agev_category_required'] ) && 'yes' === $_POST['unq_agev_category_required'] ) {
         update_term_meta( $term_id, 'unq_agev_category_required', 'yes' );
+
+        $cat_age = isset( $_POST['unq_agev_category_required_age'] ) ? (int) $_POST['unq_agev_category_required_age'] : 0;
+        if ( $cat_age >= 1 && $cat_age <= 120 ) {
+            update_term_meta( $term_id, 'unq_agev_category_required_age', $cat_age );
+        } else {
+            delete_term_meta( $term_id, 'unq_agev_category_required_age' );
+        }
     } else {
         delete_term_meta( $term_id, 'unq_agev_category_required' );
+        delete_term_meta( $term_id, 'unq_agev_category_required_age' );
     }
 }
 add_action( 'created_product_cat', 'unq_agev_save_category_meta' );
@@ -1092,21 +1323,192 @@ add_action( 'manage_product_posts_custom_column', function ( $column, $post_id )
     $targeting   = unq_agev_get( 'targeting' );
 
     if ( 'all' === $targeting ) {
-        echo '<span class="unq-col-badge is-store-wide">' . esc_html__( 'Store-wide', 'unq-age-verification' ) . '</span>';
-    } elseif ( $is_required ) {
-        $age = (int) get_post_meta( $post_id, '_unq_agev_required_age', true );
-        $label = $age > 0
-            ? sprintf(
+        // Even in store-wide mode, product/category overrides still apply.
+        $product_age = (int) get_post_meta( $post_id, '_unq_agev_required_age', true );
+        if ( $product_age > 0 ) {
+            $label = sprintf(
+                /* translators: %d: minimum age */
+                __( 'Override (%d+)', 'unq-age-verification' ),
+                $product_age
+            );
+            echo '<span class="unq-col-badge is-required">' . esc_html( $label ) . '</span>';
+            return;
+        }
+
+        // Check for a category-level age override.
+        $terms = get_the_terms( $post_id, 'product_cat' );
+        $cat_ages = array();
+        if ( is_array( $terms ) ) {
+            foreach ( $terms as $term ) {
+                if ( 'yes' === get_term_meta( $term->term_id, 'unq_agev_category_required', true ) ) {
+                    $ca = (int) get_term_meta( $term->term_id, 'unq_agev_category_required_age', true );
+                    if ( $ca > 0 ) {
+                        $cat_ages[] = $ca;
+                    }
+                }
+            }
+        }
+        if ( ! empty( $cat_ages ) ) {
+            $label = sprintf(
+                /* translators: %d: minimum age */
+                __( 'Via category (%d+)', 'unq-age-verification' ),
+                max( $cat_ages )
+            );
+            echo '<span class="unq-col-badge is-category">' . esc_html( $label ) . '</span>';
+            return;
+        }
+
+        $label = sprintf(
+            /* translators: %d: minimum age */
+            __( 'Store-wide (%d+)', 'unq-age-verification' ),
+            unq_agev_get( 'required_age' )
+        );
+        echo '<span class="unq-col-badge is-store-wide">' . esc_html( $label ) . '</span>';
+        return;
+    }
+
+    // 'selected_only' — determine whether and how this product is gated.
+    if ( $is_required ) {
+        // Product has its own gate flag.
+        $product_age = (int) get_post_meta( $post_id, '_unq_agev_required_age', true );
+        if ( $product_age > 0 ) {
+            // Explicit product-level override.
+            $label = sprintf(
                 /* translators: %d: minimum age */
                 __( 'Required (%d+)', 'unq-age-verification' ),
-                $age
-              )
-            : __( 'Required', 'unq-age-verification' );
-        echo '<span class="unq-col-badge is-required">' . esc_html( $label ) . '</span>';
-    } else {
-        echo '<span class="unq-col-badge is-none">&mdash;</span>';
+                $product_age
+            );
+        } else {
+            // No product override — inherit from category or global.
+            $effective = unq_agev_effective_product_age( $post_id );
+            $global    = unq_agev_get( 'required_age' );
+
+            // Check if a gated category supplies the age.
+            $from_category = false;
+            $terms = get_the_terms( $post_id, 'product_cat' );
+            if ( is_array( $terms ) ) {
+                foreach ( $terms as $term ) {
+                    if ( 'yes' === get_term_meta( $term->term_id, 'unq_agev_category_required', true ) ) {
+                        $cat_age = (int) get_term_meta( $term->term_id, 'unq_agev_category_required_age', true );
+                        if ( $cat_age > 0 ) {
+                            $from_category = true;
+                            break;
+                        }
+                    }
+                }
+            }
+
+            if ( $from_category ) {
+                $label = sprintf(
+                    /* translators: %d: minimum age */
+                    __( 'Required (%d+ &middot; cat)', 'unq-age-verification' ),
+                    $effective
+                );
+            } else {
+                $label = sprintf(
+                    /* translators: %d: minimum age */
+                    __( 'Required (%d+ &middot; store)', 'unq-age-verification' ),
+                    $effective
+                );
+            }
+        }
+        echo '<span class="unq-col-badge is-required">' . wp_kses( $label, array() ) . '</span>';
+        return;
     }
+
+    // No product-level flag — check if a gated category covers this product.
+    $cat_gated = false;
+    $terms = get_the_terms( $post_id, 'product_cat' );
+    if ( is_array( $terms ) ) {
+        foreach ( $terms as $term ) {
+            if ( 'yes' === get_term_meta( $term->term_id, 'unq_agev_category_required', true ) ) {
+                $cat_gated = true;
+                break;
+            }
+        }
+    }
+
+    if ( $cat_gated ) {
+        $effective = unq_agev_effective_product_age( $post_id );
+        $label = sprintf(
+            /* translators: %d: minimum age */
+            __( 'Via category (%d+)', 'unq-age-verification' ),
+            $effective
+        );
+        echo '<span class="unq-col-badge is-category">' . esc_html( $label ) . '</span>';
+        return;
+    }
+
+    echo '<span class="unq-col-badge is-none">&mdash;</span>';
 }, 10, 2 );
+
+// ---------------------------------------------------------------------------
+// Product categories list column — shows effective age gate status per term.
+// ---------------------------------------------------------------------------
+
+add_filter( 'manage_edit-product_cat_columns', function ( $columns ) {
+    $new = array();
+    foreach ( $columns as $key => $label ) {
+        $new[ $key ] = $label;
+        if ( 'name' === $key ) {
+            $new['unq_agev_cat'] = __( 'Age gate', 'unq-age-verification' );
+        }
+    }
+    return $new;
+} );
+
+add_filter( 'manage_product_cat_custom_column', function ( $content, $column_name, $term_id ) {
+    if ( 'unq_agev_cat' !== $column_name ) {
+        return $content;
+    }
+
+    $targeting = unq_agev_get( 'targeting' );
+    $global    = unq_agev_get( 'required_age' );
+
+    if ( 'all' === $targeting ) {
+        // Show category-level age override when set, otherwise fall back to global.
+        $cat_age = (int) get_term_meta( $term_id, 'unq_agev_category_required_age', true );
+        if ( $cat_age > 0 ) {
+            $label = sprintf(
+                /* translators: %d: minimum age */
+                __( 'Category (%d+)', 'unq-age-verification' ),
+                $cat_age
+            );
+            return '<span class="unq-col-badge is-category">' . esc_html( $label ) . '</span>';
+        }
+        $label = sprintf(
+            /* translators: %d: minimum age */
+            __( 'Store-wide (%d+)', 'unq-age-verification' ),
+            $global
+        );
+        return '<span class="unq-col-badge is-store-wide">' . esc_html( $label ) . '</span>';
+    }
+
+    // 'selected_only' — check if this category is gated.
+    $required = get_term_meta( $term_id, 'unq_agev_category_required', true );
+    if ( 'yes' !== $required ) {
+        return '<span class="unq-col-badge is-none">&mdash;</span>';
+    }
+
+    $cat_age = (int) get_term_meta( $term_id, 'unq_agev_category_required_age', true );
+    if ( $cat_age > 0 ) {
+        // Category has its own explicit age rule.
+        $label = sprintf(
+            /* translators: %d: minimum age set on this category */
+            __( 'Gated (%d+)', 'unq-age-verification' ),
+            $cat_age
+        );
+        return '<span class="unq-col-badge is-required">' . esc_html( $label ) . '</span>';
+    } else {
+        // Gated but age inherits from the store default.
+        $label = sprintf(
+            /* translators: %d: store-wide minimum age */
+            __( 'Gated &mdash; store default (%d+)', 'unq-age-verification' ),
+            $global
+        );
+        return '<span class="unq-col-badge is-store-wide">' . wp_kses( $label, array() ) . '</span>';
+    }
+}, 10, 3 );
 
 // Add a "Support" link to the plugin's row in Plugins → Installed Plugins.
 add_filter( 'plugin_row_meta', function ( $links, $file ) {
@@ -1404,7 +1806,7 @@ add_action( 'wp_enqueue_scripts', function () {
         return;
     }
 
-    if ( is_cart() ) {
+    if ( is_cart() && unq_agev_cart_is_gated() ) {
         $shared_data = array(
             'sdkUrl'       => UNQ_AGEV_SDK_URL,
             'sdkIntegrity' => UNQ_AGEV_SDK_SRI,
@@ -1412,6 +1814,7 @@ add_action( 'wp_enqueue_scripts', function () {
             'ageToVerify'  => unq_agev_cart_required_age(),
             'redirectUri'  => home_url( '/unqverify/callback/' ),
             'mode'         => unq_agev_get( 'mode' ),
+            'testMode'     => 'yes' !== unq_agev_get( 'use_production' ),
         );
         wp_enqueue_script(
             'unq-age-cart',
@@ -1431,7 +1834,7 @@ add_action( 'wp_enqueue_scripts', function () {
         );
     }
 
-    if ( is_checkout() && ! is_wc_endpoint_url( 'order-received' ) && ! is_wc_endpoint_url( 'order-pay' ) ) {
+    if ( is_checkout() && unq_agev_cart_is_gated() && ! is_wc_endpoint_url( 'order-received' ) && ! is_wc_endpoint_url( 'order-pay' ) ) {
         $shared_data = array(
             'sdkUrl'       => UNQ_AGEV_SDK_URL,
             'sdkIntegrity' => UNQ_AGEV_SDK_SRI,
@@ -1439,6 +1842,7 @@ add_action( 'wp_enqueue_scripts', function () {
             'ageToVerify'  => unq_agev_cart_required_age(),
             'redirectUri'  => home_url( '/unqverify/callback/' ),
             'mode'         => unq_agev_get( 'mode' ),
+            'testMode'     => 'yes' !== unq_agev_get( 'use_production' ),
         );
         wp_enqueue_script(
             'unq-age-checkout',

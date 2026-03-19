@@ -541,4 +541,236 @@ class SettingsTest extends TestCase {
             );
         }
     }
+
+    // ------------------------------------------------------------------
+    // 53. unq_agev_effective_product_age() returns the product-level
+    //     override when _unq_agev_required_age meta is > 0.
+    // ------------------------------------------------------------------
+
+    public function test_effective_age_uses_product_override(): void {
+        Functions\when( 'get_option' )->alias( function ( $opt, $def = null ) {
+            if ( 'unq_agev_required_age' === $opt ) return '18';
+            return $def;
+        } );
+        Functions\when( 'get_post_meta' )->alias( function ( $id, $key ) {
+            if ( '_unq_agev_required_age' === $key ) return '16';
+            return '';
+        } );
+
+        $this->assertSame( 16, unq_agev_effective_product_age( 10 ) );
+    }
+
+    // ------------------------------------------------------------------
+    // 54. unq_agev_effective_product_age() falls back to a gated category's
+    //     age when there is no product-level override.
+    // ------------------------------------------------------------------
+
+    public function test_effective_age_falls_back_to_category(): void {
+        Functions\when( 'get_option' )->alias( function ( $opt, $def = null ) {
+            if ( 'unq_agev_required_age' === $opt ) return '18';
+            return $def;
+        } );
+        Functions\when( 'get_post_meta' )->alias( function ( $id, $key ) {
+            if ( '_unq_agev_required_age' === $key ) return '0'; // no product override
+            return '';
+        } );
+
+        $mock_term         = new \stdClass();
+        $mock_term->term_id = 99;
+        Functions\when( 'get_the_terms' )->justReturn( array( $mock_term ) );
+        Functions\when( 'get_term_meta' )->alias( function ( $term_id, $key ) {
+            if ( 'unq_agev_category_required'     === $key ) return 'yes';
+            if ( 'unq_agev_category_required_age' === $key ) return '17';
+            return '';
+        } );
+
+        $this->assertSame( 17, unq_agev_effective_product_age( 10 ) );
+    }
+
+    // ------------------------------------------------------------------
+    // 55. When a product belongs to multiple gated categories with
+    //     different ages, the maximum age is used.
+    // ------------------------------------------------------------------
+
+    public function test_effective_age_takes_max_of_multiple_categories(): void {
+        Functions\when( 'get_option' )->alias( function ( $opt, $def = null ) {
+            if ( 'unq_agev_required_age' === $opt ) return '18';
+            return $def;
+        } );
+        Functions\when( 'get_post_meta' )->alias( function ( $id, $key ) {
+            if ( '_unq_agev_required_age' === $key ) return '0';
+            return '';
+        } );
+
+        $term_a          = new \stdClass();
+        $term_a->term_id = 10;
+        $term_b          = new \stdClass();
+        $term_b->term_id = 20;
+        Functions\when( 'get_the_terms' )->justReturn( array( $term_a, $term_b ) );
+        Functions\when( 'get_term_meta' )->alias( function ( $term_id, $key ) {
+            if ( 'unq_agev_category_required' === $key ) return 'yes';
+            if ( 'unq_agev_category_required_age' === $key ) {
+                return $term_id === 10 ? '15' : '21';
+            }
+            return '';
+        } );
+
+        $this->assertSame( 21, unq_agev_effective_product_age( 5 ) );
+    }
+
+    // ------------------------------------------------------------------
+    // 56. When neither product nor category carries an age override,
+    //     the store-wide global is returned.
+    // ------------------------------------------------------------------
+
+    public function test_effective_age_falls_back_to_global(): void {
+        Functions\when( 'get_option' )->alias( function ( $opt, $def = null ) {
+            if ( 'unq_agev_required_age' === $opt ) return '18';
+            return $def;
+        } );
+        Functions\when( 'get_post_meta' )->alias( function ( $id, $key ) {
+            if ( '_unq_agev_required_age' === $key ) return '0';
+            return '';
+        } );
+
+        $mock_term          = new \stdClass();
+        $mock_term->term_id = 5;
+        Functions\when( 'get_the_terms' )->justReturn( array( $mock_term ) );
+        Functions\when( 'get_term_meta' )->alias( function ( $term_id, $key ) {
+            if ( 'unq_agev_category_required'     === $key ) return 'yes';
+            if ( 'unq_agev_category_required_age' === $key ) return '0'; // no category override
+            return '';
+        } );
+
+        $this->assertSame( 18, unq_agev_effective_product_age( 7 ) );
+    }
+
+    // ------------------------------------------------------------------
+    // 57. Age from a non-gated category is never used (must not leak
+    //     through even when the category has an age meta value).
+    // ------------------------------------------------------------------
+
+    public function test_effective_age_ignores_non_gated_category(): void {
+        Functions\when( 'get_option' )->alias( function ( $opt, $def = null ) {
+            if ( 'unq_agev_required_age' === $opt ) return '18';
+            return $def;
+        } );
+        Functions\when( 'get_post_meta' )->alias( function ( $id, $key ) {
+            if ( '_unq_agev_required_age' === $key ) return '0';
+            return '';
+        } );
+
+        $gated_term          = new \stdClass();
+        $gated_term->term_id = 1;
+        $free_term           = new \stdClass();
+        $free_term->term_id  = 2;
+        Functions\when( 'get_the_terms' )->justReturn( array( $gated_term, $free_term ) );
+        Functions\when( 'get_term_meta' )->alias( function ( $term_id, $key ) {
+            if ( 'unq_agev_category_required' === $key ) {
+                return $term_id === 1 ? 'yes' : 'no'; // only term 1 is gated
+            }
+            if ( 'unq_agev_category_required_age' === $key ) {
+                return $term_id === 1 ? '17' : '99'; // term 2 has a value but must be ignored
+            }
+            return '';
+        } );
+
+        // Should be 17 (from gated term 1), not 99 (from non-gated term 2).
+        $this->assertSame( 17, unq_agev_effective_product_age( 8 ) );
+    }
+
+    // ------------------------------------------------------------------
+    // 58. unq_agev_cart_required_age() uses the category-resolved age
+    //     when targeting is 'selected_only' and no product override is set.
+    // ------------------------------------------------------------------
+
+    public function test_cart_required_age_uses_category_resolution(): void {
+        Functions\when( 'get_option' )->alias( function ( $opt, $def = null ) {
+            if ( 'unq_agev_required_age' === $opt ) return '18';
+            if ( 'unq_agev_targeting'    === $opt ) return 'selected_only';
+            return $def;
+        } );
+        // Product 6: gated via meta, no age override.
+        Functions\when( 'get_post_meta' )->alias( function ( $id, $key ) {
+            if ( '_unq_agev_required' === $key )     return 'yes';
+            if ( '_unq_agev_required_age' === $key ) return '0';
+            return '';
+        } );
+        $mock_term          = new \stdClass();
+        $mock_term->term_id = 30;
+        Functions\when( 'get_the_terms' )->justReturn( array( $mock_term ) );
+        Functions\when( 'get_term_meta' )->alias( function ( $term_id, $key ) {
+            if ( 'unq_agev_category_required'     === $key ) return 'yes';
+            if ( 'unq_agev_category_required_age' === $key ) return '17';
+            return '';
+        } );
+
+        // Cart contains one product; its effective age should come from the category (17).
+        $result = unq_agev_cart_required_age( array( array( 'product_id' => 6 ) ) );
+        $this->assertSame( 17, $result );
+    }
+
+    // ------------------------------------------------------------------
+    // 59. unq_agev_cart_is_gated() returns false in 'selected_only' mode
+    //     when the cart product is in a non-gated category.
+    // ------------------------------------------------------------------
+
+    public function test_cart_is_gated_returns_false_when_no_categories_selected(): void {
+        Functions\when( 'get_option' )->alias( function ( $opt, $def = null ) {
+            if ( 'unq_agev_enabled'    === $opt ) return 'yes';
+            if ( 'unq_agev_targeting'  === $opt ) return 'selected_only';
+            if ( 'unq_agev_test_public_key' === $opt ) return 'pk_test_abc';
+            return $def;
+        } );
+        // Product has no individual gate flag.
+        Functions\when( 'get_post_meta' )->alias( function ( $id, $key ) {
+            if ( '_unq_agev_required' === $key ) return '';
+            return '';
+        } );
+        $term          = new \stdClass();
+        $term->term_id = 5;
+        Functions\when( 'get_the_terms' )->justReturn( array( $term ) );
+        // Category is NOT gated.
+        Functions\when( 'get_term_meta' )->alias( function ( $term_id, $key ) {
+            if ( 'unq_agev_category_required' === $key ) return ''; // not 'yes'
+            return '';
+        } );
+
+        $result = unq_agev_cart_is_gated( array( array( 'product_id' => 7 ) ) );
+        $this->assertFalse( $result );
+    }
+
+    // ------------------------------------------------------------------
+    // 60. unq_agev_cart_is_gated() returns false in 'selected_only' mode
+    //     when a different category is gated but the cart product belongs
+    //     only to a non-gated category.
+    // ------------------------------------------------------------------
+
+    public function test_cart_is_gated_returns_false_when_product_not_in_gated_category(): void {
+        Functions\when( 'get_option' )->alias( function ( $opt, $def = null ) {
+            if ( 'unq_agev_enabled'    === $opt ) return 'yes';
+            if ( 'unq_agev_targeting'  === $opt ) return 'selected_only';
+            if ( 'unq_agev_test_public_key' === $opt ) return 'pk_test_abc';
+            return $def;
+        } );
+        // Product has no individual gate flag.
+        Functions\when( 'get_post_meta' )->alias( function ( $id, $key ) {
+            if ( '_unq_agev_required' === $key ) return '';
+            return '';
+        } );
+        // Product belongs only to category B (term_id=2). Category A (term_id=1) is gated but
+        // the product is not in it.
+        $term_b          = new \stdClass();
+        $term_b->term_id = 2;
+        Functions\when( 'get_the_terms' )->justReturn( array( $term_b ) );
+        Functions\when( 'get_term_meta' )->alias( function ( $term_id, $key ) {
+            if ( 'unq_agev_category_required' === $key ) {
+                return $term_id === 1 ? 'yes' : ''; // only category A is gated; product is in B
+            }
+            return '';
+        } );
+
+        $result = unq_agev_cart_is_gated( array( array( 'product_id' => 8 ) ) );
+        $this->assertFalse( $result );
+    }
 }

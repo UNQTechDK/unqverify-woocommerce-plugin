@@ -180,6 +180,20 @@
       "display:none;margin:0 0 16px;font-size:13px;padding:10px 14px;" +
       "border-radius:6px;text-align:left;line-height:1.5;";
 
+    // Test-mode banner — full-width strip at the top of the card.
+    if (UNQCart.testMode) {
+      var testBanner = document.createElement("div");
+      testBanner.textContent = "\uD83E\uDDEA TEST MODE";
+      testBanner.style.cssText =
+        "background:#fef9c3;color:#854d0e;border-bottom:1px solid #fde047;" +
+        "font-size:11px;font-weight:700;letter-spacing:0.06em;text-align:center;" +
+        "padding:7px 28px;border-radius:12px 12px 0 0;" +
+        "margin:-32px -28px 24px -28px;cursor:default;";
+      testBanner.title =
+        "Test mode is active. Switch to Production in WooCommerce \u2192 Settings \u2192 UNQVerify to go live.";
+      card.appendChild(testBanner);
+    }
+
     card.appendChild(icon);
     card.appendChild(title);
     card.appendChild(body);

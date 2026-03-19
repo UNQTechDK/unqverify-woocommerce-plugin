@@ -155,44 +155,86 @@ if ( ! function_exists( 'unq_agev_cart_is_gated' ) ) {
 }
 
 // Stub for unq_agev_cart_required_age() — mirrors real plugin logic.
+if ( ! function_exists( 'unq_agev_effective_product_age' ) ) {
+    /**
+     * @param int $product_id
+     */
+    function unq_agev_effective_product_age( $product_id ) {
+        $product_id = (int) $product_id;
+
+        // 1. Product override.
+        $product_override = (int) get_post_meta( $product_id, '_unq_agev_required_age', true );
+        if ( $product_override > 0 ) {
+            return $product_override;
+        }
+
+        // 2. Max age across gated categories.
+        $cat_ages = array();
+        $terms    = get_the_terms( $product_id, 'product_cat' );
+        if ( is_array( $terms ) ) {
+            foreach ( $terms as $term ) {
+                if ( 'yes' !== get_term_meta( $term->term_id, 'unq_agev_category_required', true ) ) {
+                    continue;
+                }
+                $cat_age = (int) get_term_meta( $term->term_id, 'unq_agev_category_required_age', true );
+                if ( $cat_age > 0 ) {
+                    $cat_ages[] = $cat_age;
+                }
+            }
+        }
+        if ( ! empty( $cat_ages ) ) {
+            return max( $cat_ages );
+        }
+
+        // 3. Store-wide default.
+        return unq_agev_get( 'required_age' );
+    }
+}
+
 if ( ! function_exists( 'unq_agev_cart_required_age' ) ) {
     /**
-     * @param array|null $cart_items  Same format as unq_agev_cart_is_gated().
+     * @param array|null $cart_items   Array of cart item arrays for testing.
+     *                                  Each item: ['product_id' => int].
+     *                                  Pass null to simulate no WC cart available.
      */
     function unq_agev_cart_required_age( $cart_items = null ) {
-        if ( 'all' === unq_agev_get( 'targeting' ) ) {
-            return unq_agev_get( 'required_age' );
-        }
-        $global = unq_agev_get( 'required_age' );
+        $global    = unq_agev_get( 'required_age' );
+        $targeting = unq_agev_get( 'targeting' );
+
         if ( null === $cart_items ) {
             return $global;
         }
+
         $ages = array();
         foreach ( $cart_items as $item ) {
             $product_id = (int) ( $item['product_id'] ?? 0 );
             if ( ! $product_id ) {
                 continue;
             }
-            $is_gated = false;
-            if ( 'yes' === get_post_meta( $product_id, '_unq_agev_required', true ) ) {
-                $is_gated = true;
-            } else {
-                $terms = get_the_terms( $product_id, 'product_cat' );
-                if ( is_array( $terms ) ) {
-                    foreach ( $terms as $term ) {
-                        if ( 'yes' === get_term_meta( $term->term_id, 'unq_agev_category_required', true ) ) {
-                            $is_gated = true;
-                            break;
+
+            if ( 'selected_only' === $targeting ) {
+                $is_gated = false;
+                if ( 'yes' === get_post_meta( $product_id, '_unq_agev_required', true ) ) {
+                    $is_gated = true;
+                } else {
+                    $terms = get_the_terms( $product_id, 'product_cat' );
+                    if ( is_array( $terms ) ) {
+                        foreach ( $terms as $term ) {
+                            if ( 'yes' === get_term_meta( $term->term_id, 'unq_agev_category_required', true ) ) {
+                                $is_gated = true;
+                                break;
+                            }
                         }
                     }
                 }
+                if ( ! $is_gated ) {
+                    continue;
+                }
             }
-            if ( ! $is_gated ) {
-                continue;
-            }
-            $override = (int) get_post_meta( $product_id, '_unq_agev_required_age', true );
-            $ages[]   = ( $override > 0 ) ? $override : $global;
+
+            $ages[] = unq_agev_effective_product_age( $product_id );
         }
+
         return empty( $ages ) ? $global : max( $ages );
     }
 }

@@ -356,15 +356,23 @@
 .unq-cat-empty { margin: 0; font-size: 13px; color: #94a3b8; font-style: italic; }
 
 /* ---- Products list column badge ---------------------------------- */
-.column-unq_agev { width: 90px; }
+.column-unq_agev,
+.column-unq_agev_cat { width: 130px; }
 .unq-col-badge {
     display: inline-block;
-    padding: 2px 8px;
+    padding: 2px 7px;
     border-radius: 10px;
     font-size: 11px;
     font-weight: 600;
-    white-space: nowrap;
+    white-space: normal;
+    word-break: break-word;
+    line-height: 1.4;
 }
 .unq-col-badge.is-required   { background: #f0fdf4; color: #15803d; border: 1px solid #bbf7d0; }
 .unq-col-badge.is-store-wide { background: #eff6ff; color: #1d4ed8; border: 1px solid #bfdbfe; }
+.unq-col-badge.is-category   { background: #fff7ed; color: #c2410c; border: 1px solid #fed7aa; }
 .unq-col-badge.is-none       { color: #94a3b8; font-weight: 400; }
+
+/* ---- Product meta box — status indicator ------------------------- */
+.unq-mb-status      { margin: 8px 0 12px; }
+.unq-mb-status-desc { margin: 4px 0 0; font-size: 11px; color: #64748b; line-height: 1.4; }
