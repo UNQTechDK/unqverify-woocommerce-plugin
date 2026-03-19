@@ -23,16 +23,24 @@ jobs:
 
       - name: Build plugin ZIP
         run: |
-          zip -r aldersverificering-woocommerce.zip aldersverificering-woocommerce/ \
-            --exclude "aldersverificering-woocommerce/.github/*" \
-            --exclude "aldersverificering-woocommerce/tests/*" \
-            --exclude "aldersverificering-woocommerce/node_modules/*" \
-            --exclude "aldersverificering-woocommerce/*.lock" \
-            --exclude "aldersverificering-woocommerce/package.json" \
-            --exclude "aldersverificering-woocommerce/pnpm-lock.yaml" \
-            --exclude "aldersverificering-woocommerce/vitest.config*" \
-            --exclude "aldersverificering-woocommerce/phpunit.xml*" \
-            --exclude "aldersverificering-woocommerce/MANUAL_TEST_SUITE.md"
+          # Copy repo contents into a named folder so WordPress extracts correctly
+          mkdir -p build/aldersverificering-woocommerce
+          rsync -a \
+            --exclude='.git' \
+            --exclude='.github' \
+            --exclude='tests' \
+            --exclude='node_modules' \
+            --exclude='vendor' \
+            --exclude='*.lock' \
+            --exclude='package.json' \
+            --exclude='pnpm-lock.yaml' \
+            --exclude='composer.json' \
+            --exclude='composer.lock' \
+            --exclude='vitest.config*' \
+            --exclude='phpunit.xml*' \
+            --exclude='MANUAL_TEST_SUITE.md' \
+            ./ build/aldersverificering-woocommerce/
+          cd build && zip -r ../aldersverificering-woocommerce.zip aldersverificering-woocommerce/
 
       - name: Create GitHub Release
         uses: softprops/action-gh-release@v2
