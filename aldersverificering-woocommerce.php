@@ -1,11 +1,11 @@
 <?php
 /**
  * Plugin Name: Aldersverificering for WooCommerce
- * Plugin URI:  https://unqverify.com
- * Description: Age verification for WooCommerce checkout using MitID via the UNQVerify SDK.
+ * Plugin URI:  https://www.aldersverificering.dk
+ * Description: Aldersverificering med MitID fra Aldersverificering.dk
  * Version:     0.2.0
  * Author:      UNQTech
- * Author URI:  https://unqtech.dk
+ * Author URI:  https://www.aldersverificering.dk
  * Text Domain: unq-age-verification
  * Domain Path: /languages
  * Requires at least: 6.0
@@ -721,6 +721,13 @@ function unq_agev_render_settings_page() {
                         <?php esc_html_e( 'Manage subscription', 'unq-age-verification' ); ?> &rarr;
                     </a>
                 </div>
+
+                <div style="margin-top:16px;padding:14px 16px;background:#f8fafc;border:1px solid #e2e8f0;border-radius:6px;font-size:13px;color:#475569;">
+                    <?php esc_html_e( 'Need help?', 'unq-age-verification' ); ?>
+                    <a href="https://www.aldersverificering.dk/kontakt" target="_blank" rel="noopener noreferrer" style="color:#2563eb;text-decoration:none;font-weight:500;">
+                        <?php esc_html_e( 'Contact support at Aldersverificering.dk', 'unq-age-verification' ); ?> &rarr;
+                    </a>
+                </div>
             </div><!-- .unq-guide-body -->
         </div><!-- .unq-agev-card -->
 
@@ -1099,6 +1106,17 @@ add_action( 'manage_product_posts_custom_column', function ( $column, $post_id )
     } else {
         echo '<span class="unq-col-badge is-none">&mdash;</span>';
     }
+}, 10, 2 );
+
+// Add a "Support" link to the plugin's row in Plugins → Installed Plugins.
+add_filter( 'plugin_row_meta', function ( $links, $file ) {
+    if ( plugin_basename( __FILE__ ) !== $file ) {
+        return $links;
+    }
+    $links[] = '<a href="https://www.aldersverificering.dk/kontakt" target="_blank" rel="noopener noreferrer">'
+        . esc_html__( 'Support', 'unq-age-verification' )
+        . '</a>';
+    return $links;
 }, 10, 2 );
 
 // Admin notice when the plugin is active but has no API key configured.
