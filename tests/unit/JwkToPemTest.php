@@ -19,10 +19,17 @@ class JwkToPemTest extends TestCase {
         Monkey\setUp();
         $this->factory = new JwtTestFactory();
 
-        // Default: public_key returns test prefix so test JWKS URL is used.
+        // Default: resolve to test environment so unq_agev_active_key() returns
+        // 'pk_test_unit' and get_public_key() hits the test JWKS endpoint.
         Functions\when( 'get_option' )->alias( function ( $option, $default = null ) {
             if ( 'unq_agev_public_key' === $option ) {
                 return 'pk_test_unit';
+            }
+            if ( 'unq_agev_test_public_key' === $option ) {
+                return 'pk_test_unit';
+            }
+            if ( 'unq_agev_use_production' === $option ) {
+                return 'no';
             }
             return $default;
         } );
@@ -105,6 +112,12 @@ class JwkToPemTest extends TestCase {
             if ( 'unq_agev_public_key' === $option ) {
                 return 'pk_test_unit';
             }
+            if ( 'unq_agev_test_public_key' === $option ) {
+                return 'pk_test_unit';
+            }
+            if ( 'unq_agev_use_production' === $option ) {
+                return 'no';
+            }
             if ( 'unqverify_pubkey_stale_test' === $option ) {
                 return $stale_pem;
             }
@@ -130,6 +143,12 @@ class JwkToPemTest extends TestCase {
         Functions\when( 'get_option' )->alias( function ( $option, $default = null ) {
             if ( 'unq_agev_public_key' === $option ) {
                 return 'pk_test_unit';
+            }
+            if ( 'unq_agev_test_public_key' === $option ) {
+                return 'pk_test_unit';
+            }
+            if ( 'unq_agev_use_production' === $option ) {
+                return 'no';
             }
             // No stale key stored.
             return $default;

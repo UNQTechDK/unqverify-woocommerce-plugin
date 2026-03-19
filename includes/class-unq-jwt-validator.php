@@ -27,7 +27,12 @@ class UNQ_JWT_Validator {
      * @return string|WP_Error PEM string or WP_Error on failure.
      */
     public static function get_public_key() {
-        $is_test      = ( strpos( unq_agev_get( 'public_key' ), 'pk_test_' ) === 0 );
+        // Use the ACTIVE key (respects test/production toggle) to select the
+        // correct JWKS endpoint. Using the raw 'public_key' option instead would
+        // always hit the live endpoint when the production key field is empty,
+        // breaking every test-mode verification for new merchants.
+        $active_key   = unq_agev_active_key();
+        $is_test      = ( strpos( $active_key, 'pk_test_' ) === 0 );
         $jwks_url     = $is_test ? self::TEST_JWKS_URL : self::LIVE_JWKS_URL;
         $transient    = $is_test ? 'unqverify_pubkey_test' : 'unqverify_pubkey_live';
         $stale_option = $is_test ? 'unqverify_pubkey_stale_test' : 'unqverify_pubkey_stale_live';

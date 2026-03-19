@@ -373,6 +373,72 @@
 .unq-col-badge.is-category   { background: #fff7ed; color: #c2410c; border: 1px solid #fed7aa; }
 .unq-col-badge.is-none       { color: #94a3b8; font-weight: 400; }
 
+/* ---- Help bar (always-visible top strip) -------------------------- */
+.unq-help-bar {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    padding: 9px 16px;
+    background: #f8fafc;
+    border: 1px solid #e2e8f0;
+    border-radius: 6px;
+    font-size: 13px;
+    color: #64748b;
+    margin-bottom: 16px;
+}
+.unq-help-bar a { color: #2563eb; text-decoration: none; font-weight: 500; }
+.unq-help-bar a:hover { text-decoration: underline; }
+.unq-help-sep { color: #cbd5e1; }
+
+/* ---- Sticky unsaved-changes save bar ----------------------------- */
+#unq-save-bar {
+    position: fixed;
+    bottom: 0;
+    left: 0;
+    right: 0;
+    z-index: 99999;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 16px;
+    padding: 13px 28px;
+    background: #0f172a;
+    color: #fff;
+    box-shadow: 0 -2px 16px rgba(0,0,0,.2);
+    transform: translateY(100%);
+    transition: transform .25s ease;
+}
+#unq-save-bar.visible { transform: translateY(0); }
+#unq-save-bar p {
+    margin: 0;
+    font-size: 13px;
+    font-weight: 500;
+    display: flex;
+    align-items: center;
+    gap: 8px;
+}
+#unq-save-bar p::before {
+    content: '';
+    display: inline-block;
+    width: 8px; height: 8px;
+    border-radius: 50%;
+    background: #f59e0b;
+    flex-shrink: 0;
+}
+#unq-save-bar button {
+    padding: 8px 22px;
+    background: #16a34a;
+    color: #fff;
+    border: none;
+    border-radius: 6px;
+    font-size: 13px;
+    font-weight: 600;
+    cursor: pointer;
+    white-space: nowrap;
+    transition: background .15s;
+}
+#unq-save-bar button:hover { background: #15803d; }
+
 /* ---- Product meta box — status indicator ------------------------- */
 .unq-mb-status      { margin: 8px 0 12px; }
 .unq-mb-status-desc { margin: 4px 0 0; font-size: 11px; color: #64748b; line-height: 1.4; }

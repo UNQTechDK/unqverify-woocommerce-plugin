@@ -17,8 +17,8 @@ msgstr ""
 
 # ── Settings tab ─────────────────────────────────────────────────────────────
 
-msgid "UNQVerify"
-msgstr "UNQVerify"
+msgid "Aldersverificering"
+msgstr "Aldersverificering"
 
 # ── Status bar ───────────────────────────────────────────────────────────────
 
@@ -233,8 +233,8 @@ msgstr "Sikkerhedstjek mislykkedes."
 
 # ── Admin notice ──────────────────────────────────────────────────────────────
 
-msgid "<strong>UNQVerify Age Verification:</strong> No public key is configured. <a href=\"%s\">Add your key in WooCommerce &rarr; Settings &rarr; UNQVerify</a>."
-msgstr "<strong>UNQVerify Aldersverificering:</strong> Ingen public key er konfigureret. <a href=\"%s\">Tilføj din nøgle under WooCommerce &rarr; Indstillinger &rarr; UNQVerify</a>."
+msgid "<strong>Aldersverificering:</strong> Ingen API-nøgle er konfigureret. <a href=\"%s\">Tilføj din nøgle under WooCommerce &rarr; Indstillinger &rarr; Aldersverificering</a>."
+msgstr "<strong>Aldersverificering:</strong> Ingen API-nøgle er konfigureret. <a href=\"%s\">Tilføj din nøgle under WooCommerce &rarr; Indstillinger &rarr; Aldersverificering</a>."
 
 # ── Callback page error ───────────────────────────────────────────────────────
 

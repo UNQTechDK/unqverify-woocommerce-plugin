@@ -22,10 +22,18 @@ class JwtValidatorCryptoTest extends TestCase {
         Monkey\setUp();
         $this->factory = new JwtTestFactory();
 
-        // Stub get_option so that unq_agev_get('public_key') returns a test key.
+        // Stub get_option so that unq_agev_get('test_public_key') and
+        // unq_agev_active_key() both resolve to the test environment, matching
+        // the seeded 'unqverify_pubkey_test' transient in seed_transient().
         Functions\when( 'get_option' )->alias( function ( $option, $default = null ) {
             if ( 'unq_agev_public_key' === $option ) {
-                return 'pk_test_unit';
+                return 'pk_test_unit'; // kept for any direct reads
+            }
+            if ( 'unq_agev_test_public_key' === $option ) {
+                return 'pk_test_unit'; // unq_agev_active_key() reads this in test mode
+            }
+            if ( 'unq_agev_use_production' === $option ) {
+                return 'no'; // ensure active_key() returns the test key
             }
             if ( 'unq_agev_required_age' === $option ) {
                 return 18;
