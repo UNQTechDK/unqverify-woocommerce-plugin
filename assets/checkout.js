@@ -28,6 +28,10 @@
     _sdkPromise = new Promise(function (resolve, reject) {
       var script = document.createElement("script");
       script.src = UNQCheckout.sdkUrl;
+      if (UNQCheckout.sdkIntegrity) {
+        script.integrity = UNQCheckout.sdkIntegrity;
+        script.crossOrigin = "anonymous";
+      }
       script.async = true;
       script.onload = function () {
         if (window.UnqVerify) {

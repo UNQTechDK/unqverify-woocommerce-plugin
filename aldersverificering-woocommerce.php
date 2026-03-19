@@ -21,9 +21,23 @@ define( 'UNQ_AGEV_VERSION',     '0.2.0' );
 define( 'UNQ_AGEV_PATH',        plugin_dir_path( __FILE__ ) );
 define( 'UNQ_AGEV_URL',         plugin_dir_url( __FILE__ ) );
 define( 'UNQ_AGEV_SDK_URL',     'https://unpkg.com/@unqtech/age-verification-mitid@0.4.3/dist/index.umd.js' );
+// SRI hash for the SDK — update this every time you publish a new SDK version.
+// Compute: curl -sL "<UNQ_AGEV_SDK_URL>" | openssl dgst -sha384 -binary | openssl base64 -A
+define( 'UNQ_AGEV_SDK_SRI',     '' ); // TODO: fill in after publishing
 define( 'UNQ_AGEV_COOKIE_NAME', 'unqverify_token' );
 
 require_once UNQ_AGEV_PATH . 'includes/class-unq-jwt-validator.php';
+
+// ---------------------------------------------------------------------------
+// Declare compatibility with WooCommerce HPOS and Cart/Checkout Blocks.
+// Without these declarations WooCommerce 8.2+ shows an "may cause issues" banner.
+// ---------------------------------------------------------------------------
+add_action( 'before_woocommerce_init', function () {
+    if ( class_exists( '\\Automattic\\WooCommerce\\Utilities\\FeaturesUtil' ) ) {
+        \Automattic\WooCommerce\Utilities\FeaturesUtil::declare_compatibility( 'custom_order_tables', __FILE__, true );
+        \Automattic\WooCommerce\Utilities\FeaturesUtil::declare_compatibility( 'cart_checkout_blocks', __FILE__, true );
+    }
+} );
 
 // ---------------------------------------------------------------------------
 // Settings helpers — reads merchant config stored via WooCommerce settings API.
@@ -45,30 +59,44 @@ require_once UNQ_AGEV_PATH . 'includes/class-unq-jwt-validator.php';
  * @return mixed
  */
 function unq_agev_get( $key ) {
+    static $cache = array();
+    if ( array_key_exists( $key, $cache ) ) {
+        return $cache[ $key ];
+    }
     switch ( $key ) {
         case 'enabled':
-            return get_option( 'unq_agev_enabled', 'yes' );
+            $value = get_option( 'unq_agev_enabled', 'yes' );
+            break;
         case 'public_key':
-            return (string) get_option( 'unq_agev_public_key', '' );
+            $value = (string) get_option( 'unq_agev_public_key', '' );
+            break;
         case 'test_public_key':
-            return (string) get_option( 'unq_agev_test_public_key', '' );
+            $value = (string) get_option( 'unq_agev_test_public_key', '' );
+            break;
         case 'use_production':
-            $val = get_option( 'unq_agev_use_production', 'no' );
-            return in_array( $val, array( 'yes', 'no' ), true ) ? $val : 'no';
+            $val   = get_option( 'unq_agev_use_production', 'no' );
+            $value = in_array( $val, array( 'yes', 'no' ), true ) ? $val : 'no';
+            break;
         case 'required_age':
-            return max( 1, (int) get_option( 'unq_agev_required_age', 18 ) );
+            $value = max( 1, (int) get_option( 'unq_agev_required_age', 18 ) );
+            break;
         case 'mode':
-            $mode = get_option( 'unq_agev_verification_mode', 'popup' );
-            return in_array( $mode, array( 'popup', 'redirect' ), true ) ? $mode : 'popup';
+            $mode  = get_option( 'unq_agev_verification_mode', 'popup' );
+            $value = in_array( $mode, array( 'popup', 'redirect' ), true ) ? $mode : 'popup';
+            break;
         case 'locale':
             $locale = get_option( 'unq_agev_locale', 'auto' );
-            return in_array( $locale, array( 'auto', 'en', 'da' ), true ) ? $locale : 'auto';
+            $value  = in_array( $locale, array( 'auto', 'en', 'da' ), true ) ? $locale : 'auto';
+            break;
         case 'targeting':
             $targeting = get_option( 'unq_agev_targeting', 'all' );
-            return in_array( $targeting, array( 'all', 'selected_only' ), true ) ? $targeting : 'all';
+            $value     = in_array( $targeting, array( 'all', 'selected_only' ), true ) ? $targeting : 'all';
+            break;
         default:
             return '';
     }
+    $cache[ $key ] = $value;
+    return $cache[ $key ];
 }
 
 /**
@@ -102,17 +130,25 @@ function unq_agev_active_key() {
  * @return bool
  */
 function unq_agev_cart_is_gated() {
+    static $cache = null;
+    if ( null !== $cache ) {
+        return $cache;
+    }
+
     if ( 'yes' !== unq_agev_get( 'enabled' ) || empty( unq_agev_active_key() ) ) {
-        return false;
+        $cache = false;
+        return $cache;
     }
 
     if ( 'all' === unq_agev_get( 'targeting' ) ) {
-        return true;
+        $cache = true;
+        return $cache;
     }
 
     // 'selected_only' — scan the cart.
     if ( ! function_exists( 'WC' ) || is_null( WC()->cart ) ) {
-        return false;
+        $cache = false;
+        return $cache;
     }
 
     foreach ( WC()->cart->get_cart() as $item ) {
@@ -121,19 +157,22 @@ function unq_agev_cart_is_gated() {
             continue;
         }
         if ( 'yes' === get_post_meta( $product_id, '_unq_agev_required', true ) ) {
-            return true;
+            $cache = true;
+            return $cache;
         }
         $terms = get_the_terms( $product_id, 'product_cat' );
         if ( is_array( $terms ) ) {
             foreach ( $terms as $term ) {
                 if ( 'yes' === get_term_meta( $term->term_id, 'unq_agev_category_required', true ) ) {
-                    return true;
+                    $cache = true;
+                    return $cache;
                 }
             }
         }
     }
 
-    return false;
+    $cache = false;
+    return $cache;
 }
 
 /**
@@ -148,14 +187,21 @@ function unq_agev_cart_is_gated() {
  * @return int
  */
 function unq_agev_cart_required_age() {
+    static $cache = null;
+    if ( null !== $cache ) {
+        return $cache;
+    }
+
     if ( 'all' === unq_agev_get( 'targeting' ) ) {
-        return unq_agev_get( 'required_age' );
+        $cache = unq_agev_get( 'required_age' );
+        return $cache;
     }
 
     $global = unq_agev_get( 'required_age' );
 
     if ( ! function_exists( 'WC' ) || is_null( WC()->cart ) ) {
-        return $global;
+        $cache = $global;
+        return $cache;
     }
 
     $ages = array();
@@ -185,7 +231,8 @@ function unq_agev_cart_required_age() {
         $ages[]   = ( $override > 0 ) ? $override : $global;
     }
 
-    return empty( $ages ) ? $global : max( $ages );
+    $cache = empty( $ages ) ? $global : max( $ages );
+    return $cache;
 }
 
 /**
@@ -284,390 +331,25 @@ add_filter( 'woocommerce_settings_tabs_array', function ( $tabs ) {
 }, 50 );
 
 // ---------------------------------------------------------------------------
-// Settings page CSS — only injected on the plugin's own tab.
+// Settings page CSS — enqueued only when on the plugin's own tab.
 // ---------------------------------------------------------------------------
 
-add_action( 'admin_head', function () {
+add_action( 'admin_enqueue_scripts', function () {
     // phpcs:ignore WordPress.Security.NonceVerification.Recommended
     if ( ! isset( $_GET['tab'] ) || 'unq_agev' !== sanitize_key( $_GET['tab'] ) ) {
         return;
     }
-    ?>
-    <style id="unq-agev-admin-css">
-    /* ---- Reset & layout ---------------------------------------------- */
-    .unq-agev-page { max-width: 860px; padding-bottom: 40px; }
-    .unq-agev-card {
-        background: #fff;
-        border: 1px solid #e2e8f0;
-        border-radius: 8px;
-        padding: 24px 28px;
-        margin-bottom: 16px;
-        box-shadow: 0 1px 2px rgba(0,0,0,.04);
-    }
-    .unq-agev-card h2 {
-        margin: 0 0 4px;
-        font-size: 15px;
-        font-weight: 600;
-        color: #0f172a;
-    }
-    .unq-card-desc {
-        margin: 0 0 18px;
-        font-size: 13px;
-        color: #64748b;
-        line-height: 1.5;
-    }
-
-    /* ---- Enable toggle ----------------------------------------------- */
-    .unq-enable-row {
-        display: flex;
-        align-items: center;
-        gap: 14px;
-        padding: 14px 0;
-    }
-    .unq-toggle-switch {
-        position: relative;
-        width: 44px;
-        height: 24px;
-        flex-shrink: 0;
-        cursor: pointer;
-    }
-    .unq-toggle-switch input { display: none; }
-    .unq-toggle-track {
-        position: absolute;
-        inset: 0;
-        background: #cbd5e1;
-        border-radius: 12px;
-        cursor: pointer;
-        transition: background .2s;
-    }
-    .unq-toggle-track::after {
-        content: '';
-        position: absolute;
-        left: 3px;
-        top: 3px;
-        width: 18px;
-        height: 18px;
-        background: #fff;
-        border-radius: 50%;
-        transition: transform .2s;
-        box-shadow: 0 1px 3px rgba(0,0,0,.2);
-    }
-    .unq-toggle-switch input:checked + .unq-toggle-track { background: #16a34a; }
-    .unq-toggle-switch input:checked + .unq-toggle-track::after { transform: translateX(20px); }
-    .unq-enable-label { font-size: 14px; font-weight: 500; color: #0f172a; }
-    .unq-enable-sublabel { font-size: 12px; color: #64748b; margin-top: 2px; }
-
-    /* ---- Status strip ------------------------------------------------ */
-    .unq-status-strip {
-        display: flex;
-        align-items: center;
-        gap: 9px;
-        padding: 11px 16px;
-        border-radius: 6px;
-        font-size: 13px;
-        font-weight: 500;
-        margin-top: 4px;
-    }
-    .unq-status-strip.status-live { background: #f0fdf4; color: #15803d; border: 1px solid #bbf7d0; }
-    .unq-status-strip.status-test { background: #fffbeb; color: #92400e; border: 1px solid #fde68a; }
-    .unq-status-strip.status-off  { background: #f8fafc; color: #64748b; border: 1px solid #e2e8f0; }
-    .unq-status-dot {
-        width: 8px; height: 8px;
-        border-radius: 50%;
-        flex-shrink: 0;
-    }
-    .status-live .unq-status-dot { background: #16a34a; }
-    .status-test .unq-status-dot { background: #f59e0b; }
-    .status-off  .unq-status-dot { background: #94a3b8; }
-
-    /* ---- Environment radio cards ------------------------------------- */
-    .unq-env-cards {
-        display: grid;
-        grid-template-columns: 1fr 1fr;
-        gap: 14px;
-        margin-bottom: 24px;
-    }
-    @media (max-width: 720px) { .unq-env-cards { grid-template-columns: 1fr; } }
-    .unq-env-card {
-        position: relative;
-        border: 2px solid #e2e8f0;
-        border-radius: 8px;
-        padding: 16px 18px;
-        cursor: pointer;
-        transition: border-color .15s, background .15s;
-        display: block;
-    }
-    .unq-env-card input[type="radio"] {
-        position: absolute;
-        opacity: 0;
-        pointer-events: none;
-    }
-    .unq-env-card:hover { border-color: #94a3b8; }
-    .unq-env-card.selected.is-test { border-color: #f59e0b; background: #fffbeb; }
-    .unq-env-card.selected.is-live { border-color: #16a34a; background: #f0fdf4; }
-    .unq-env-card-title {
-        font-size: 14px;
-        font-weight: 600;
-        color: #0f172a;
-        margin: 0 0 4px;
-        display: flex;
-        align-items: center;
-        gap: 8px;
-    }
-    .unq-radio-dot {
-        width: 16px; height: 16px;
-        border-radius: 50%;
-        border: 2px solid #cbd5e1;
-        flex-shrink: 0;
-        display: flex;
-        align-items: center;
-        justify-content: center;
-        transition: border-color .15s;
-    }
-    .selected.is-test .unq-radio-dot { border-color: #f59e0b; }
-    .selected.is-test .unq-radio-dot::after { content: ''; width: 8px; height: 8px; background: #f59e0b; border-radius: 50%; }
-    .selected.is-live .unq-radio-dot { border-color: #16a34a; }
-    .selected.is-live .unq-radio-dot::after { content: ''; width: 8px; height: 8px; background: #16a34a; border-radius: 50%; }
-    .unq-env-card-desc { font-size: 12px; color: #64748b; margin: 0; }
-    .selected.is-test .unq-env-card-desc { color: #92400e; }
-    .selected.is-live .unq-env-card-desc { color: #166534; }
-
-    /* ---- Key fields -------------------------------------------------- */
-    .unq-key-group {
-        display: grid;
-        grid-template-columns: 1fr 1fr;
-        gap: 16px;
-    }
-    @media (max-width: 720px) { .unq-key-group { grid-template-columns: 1fr; } }
-    .unq-key-label {
-        display: block;
-        font-size: 12px;
-        font-weight: 600;
-        letter-spacing: .04em;
-        text-transform: uppercase;
-        margin-bottom: 6px;
-        color: #475569;
-    }
-    .unq-key-field.unq-test .unq-key-label { color: #b45309; }
-    .unq-key-field.unq-live .unq-key-label { color: #15803d; }
-    .unq-key-field input[type="text"] {
-        width: 100%;
-        font-family: 'SFMono-Regular', Consolas, 'Liberation Mono', Menlo, monospace;
-        font-size: 13px;
-        padding: 8px 10px;
-        border: 1.5px solid #e2e8f0;
-        border-radius: 6px;
-        box-sizing: border-box;
-        transition: border-color .15s;
-    }
-    .unq-key-field input[type="text"]:focus {
-        border-color: #94a3b8;
-        outline: none;
-        box-shadow: 0 0 0 3px rgba(148,163,184,.15);
-    }
-    .unq-key-field input.has-error { border-color: #dc2626 !important; }
-    .unq-key-field input.is-valid  { border-color: #16a34a !important; }
-    .unq-field-help { margin-top: 5px; font-size: 12px; color: #64748b; }
-    .unq-field-link { color: #2563eb; text-decoration: none; }
-    .unq-field-link:hover { text-decoration: underline; }
-    .unq-field-error { margin-top: 4px; font-size: 12px; color: #dc2626; display: none; }
-    .unq-field-error.visible { display: block; }
-
-    /* ---- General settings table ------------------------------------- */
-    .unq-agev-page .form-table { margin: 0; }
-    .unq-agev-page .form-table th {
-        width: 200px; font-size: 13px; color: #374151;
-        padding: 12px 10px 12px 0; font-weight: 500;
-    }
-    .unq-agev-page .form-table td { padding: 10px 0; }
-    .unq-agev-page .form-table td p.description { font-size: 12px; color: #64748b; margin-top: 4px; }
-
-    /* ---- Domain card ------------------------------------------------- */
-    .unq-domain-warning {
-        display: flex;
-        gap: 12px;
-        align-items: flex-start;
-        background: #fffbeb;
-        border: 1px solid #fde68a;
-        border-radius: 6px;
-        padding: 14px 16px;
-        margin-bottom: 16px;
-        font-size: 13px;
-        color: #78350f;
-        line-height: 1.5;
-    }
-    .unq-domain-warning .dashicons { flex-shrink: 0; margin-top: 1px; color: #d97706; }
-    .unq-btn-primary {
-        display: inline-flex;
-        align-items: center;
-        gap: 6px;
-        padding: 9px 18px;
-        background: #0f172a;
-        color: #fff !important;
-        border-radius: 6px;
-        font-size: 13px;
-        font-weight: 500;
-        text-decoration: none !important;
-        transition: background .15s;
-    }
-    .unq-btn-primary:hover { background: #1e293b; }
-
-    /* ---- Save validation errors ------------------------------------- */
-    .unq-save-errors {
-        margin-bottom: 16px;
-        padding: 14px 18px;
-        background: #fef2f2;
-        border: 1px solid #fecaca;
-        border-radius: 8px;
-        color: #991b1b;
-        font-size: 13px;
-    }
-    .unq-save-errors ul { margin: 4px 0 0 16px; padding: 0; }
-    .unq-save-errors li { margin-bottom: 3px; }
-
-    /* ---- Onboarding guide ------------------------------------------- */
-    .unq-guide-header {
-        display: flex;
-        align-items: flex-start;
-        justify-content: space-between;
-        gap: 16px;
-        cursor: pointer;
-        user-select: none;
-    }
-    .unq-guide-toggle-btn {
-        flex-shrink: 0;
-        font-size: 12px;
-        color: #2563eb;
-        background: none;
-        border: 1px solid #bfdbfe;
-        border-radius: 4px;
-        cursor: pointer;
-        padding: 4px 10px;
-        margin-top: 2px;
-    }
-    .unq-guide-toggle-btn:hover { background: #eff6ff; }
-    .unq-guide-body { margin-top: 20px; }
-    .unq-guide-body.collapsed { display: none; }
-    .unq-steps { list-style: none; margin: 0; padding: 0; counter-reset: steps; }
-    .unq-steps li {
-        counter-increment: steps;
-        display: flex;
-        gap: 16px;
-        padding: 16px 0;
-        border-bottom: 1px solid #f1f5f9;
-    }
-    .unq-steps li:last-child { border-bottom: none; }
-    .unq-step-num {
-        flex-shrink: 0;
-        width: 26px; height: 26px;
-        border-radius: 50%;
-        background: #f1f5f9;
-        color: #475569;
-        border: 1.5px solid #e2e8f0;
-        display: flex;
-        align-items: center;
-        justify-content: center;
-        font-size: 11px;
-        font-weight: 700;
-    }
-    .unq-step-num::before { content: counter(steps); }
-    .unq-step-body { flex: 1; }
-    .unq-step-body strong { display: block; font-size: 13px; font-weight: 600; color: #0f172a; margin-bottom: 3px; }
-    .unq-step-body p { margin: 0 0 8px; font-size: 13px; color: #475569; }
-    .unq-step-link {
-        display: inline-flex;
-        align-items: center;
-        gap: 5px;
-        font-size: 12px;
-        font-weight: 500;
-        color: #2563eb;
-        text-decoration: none;
-        padding: 5px 12px;
-        border: 1px solid #bfdbfe;
-        border-radius: 5px;
-        background: #eff6ff;
-    }
-    .unq-step-link:hover { background: #dbeafe; border-color: #93c5fd; }
-    .unq-going-live {
-        margin-top: 20px;
-        padding: 18px 20px;
-        background: #f0fdf4;
-        border: 1px solid #bbf7d0;
-        border-radius: 6px;
-    }
-    .unq-going-live h3 { margin: 0 0 8px; font-size: 14px; font-weight: 600; color: #15803d; }
-    .unq-going-live p  { margin: 0 0 8px; font-size: 13px; color: #166534; }
-    .unq-going-live ol { margin: 0 0 12px 20px; font-size: 13px; color: #166534; }
-    .unq-going-live ol li { margin-bottom: 4px; }
-    .unq-btn-success {
-        display: inline-flex;
-        align-items: center;
-        gap: 6px;
-        padding: 8px 16px;
-        background: #16a34a;
-        color: #fff !important;
-        border-radius: 6px;
-        font-size: 13px;
-        font-weight: 500;
-        text-decoration: none !important;
-    }
-    .unq-btn-success:hover { background: #15803d; }
-
-    /* ---- Scope cards ------------------------------------------------- */
-    .unq-section-sep { border: none; border-top: 1px solid #f1f5f9; margin: 20px 0 16px; }
-    .unq-section-title { font-size: 13px; font-weight: 600; color: #0f172a; margin: 0 0 4px; }
-    .unq-env-card.selected.is-all          { border-color: #2563eb; background: #eff6ff; }
-    .unq-env-card.selected.is-selected-only { border-color: #7c3aed; background: #f5f3ff; }
-    .selected.is-all .unq-radio-dot          { border-color: #2563eb; }
-    .selected.is-all .unq-radio-dot::after   { content: ''; width: 8px; height: 8px; background: #2563eb; border-radius: 50%; }
-    .selected.is-selected-only .unq-radio-dot { border-color: #7c3aed; }
-    .selected.is-selected-only .unq-radio-dot::after { content: ''; width: 8px; height: 8px; background: #7c3aed; border-radius: 50%; }
-    .selected.is-all .unq-env-card-desc          { color: #1d4ed8; }
-    .selected.is-selected-only .unq-env-card-desc { color: #5b21b6; }
-
-    /* ---- Category picker --------------------------------------------- */
-    .unq-category-picker {
-        margin-top: 16px;
-        padding: 16px;
-        background: #f8fafc;
-        border: 1px solid #e2e8f0;
-        border-radius: 8px;
-    }
-    .unq-cat-picker-help { margin: 0 0 14px; font-size: 13px; color: #475569; }
-    .unq-cat-grid {
-        display: grid;
-        grid-template-columns: repeat(auto-fill, minmax(180px, 1fr));
-        gap: 8px;
-    }
-    .unq-cat-item {
-        display: flex;
-        align-items: center;
-        gap: 7px;
-        font-size: 13px;
-        color: #374151;
-        cursor: pointer;
-    }
-    .unq-cat-item input[type="checkbox"] { flex-shrink: 0; margin: 0; }
-    .unq-cat-count { font-size: 11px; color: #94a3b8; }
-    .unq-cat-empty { margin: 0; font-size: 13px; color: #94a3b8; font-style: italic; }
-
-    /* ---- Products list column badge ---------------------------------- */
-    .column-unq_agev { width: 90px; }
-    .unq-col-badge {
-        display: inline-block;
-        padding: 2px 8px;
-        border-radius: 10px;
-        font-size: 11px;
-        font-weight: 600;
-        white-space: nowrap;
-    }
-    .unq-col-badge.is-required   { background: #f0fdf4; color: #15803d; border: 1px solid #bbf7d0; }
-    .unq-col-badge.is-store-wide { background: #eff6ff; color: #1d4ed8; border: 1px solid #bfdbfe; }
-    .unq-col-badge.is-none       { color: #94a3b8; font-weight: 400; }
-    </style>
-    <?php
+    wp_enqueue_style(
+        'unq-agev-admin',
+        UNQ_AGEV_URL . 'assets/admin.css',
+        array(),
+        UNQ_AGEV_VERSION
+    );
 } );
 
+// ---------------------------------------------------------------------------
+// Settings page renderer — fully custom HTML, no WC_Admin_Settings fields API.
+// ---------------------------------------------------------------------------
 // ---------------------------------------------------------------------------
 // Settings page renderer — fully custom HTML, no WC_Admin_Settings fields API.
 // ---------------------------------------------------------------------------
@@ -693,13 +375,16 @@ function unq_agev_render_settings_page() {
     $targeting      = unq_agev_get( 'targeting' );
     $active_key     = unq_agev_active_key();
 
-    // Load all product categories for the scope section category picker.
-    $all_cats = function_exists( 'get_terms' )
-        ? get_terms( array( 'taxonomy' => 'product_cat', 'hide_empty' => false ) )
+    // Load product categories for the scope section category picker.
+    // Capped at 200 to protect against stores with thousands of categories.
+    $cat_limit = 200;
+    $all_cats  = function_exists( 'get_terms' )
+        ? get_terms( array( 'taxonomy' => 'product_cat', 'hide_empty' => false, 'number' => $cat_limit ) )
         : array();
     if ( is_wp_error( $all_cats ) || ! is_array( $all_cats ) ) {
         $all_cats = array();
     }
+    $cats_capped = ( count( $all_cats ) >= $cat_limit );
 
     // Status strip.
     $scope_label = ( 'all' === $targeting )
@@ -813,6 +498,11 @@ function unq_agev_render_settings_page() {
                         </label>
                     <?php endforeach; ?>
                     </div>
+                    <?php if ( $cats_capped ) : ?>
+                    <p style="margin:10px 0 0;font-size:12px;color:#64748b;">
+                        <?php esc_html_e( 'Showing first 200 categories. For additional categories, use the Age Verification checkbox on each product\'s edit screen or the category edit screen.', 'unq-age-verification' ); ?>
+                    </p>
+                    <?php endif; ?>
                 <?php else : ?>
                     <p class="unq-cat-empty"><?php esc_html_e( 'No product categories found. Open Products &rarr; Categories to create some.', 'unq-age-verification' ); ?></p>
                 <?php endif; ?>
@@ -1188,15 +878,27 @@ add_action( 'woocommerce_update_options_unq_agev', function () {
             ? array_map( 'absint', $_POST['unq_agev_gated_categories'] )
             : array();
 
-        if ( function_exists( 'get_terms' ) ) {
-            $all_product_cats = get_terms( array( 'taxonomy' => 'product_cat', 'hide_empty' => false, 'fields' => 'ids' ) );
-            if ( is_array( $all_product_cats ) ) {
-                foreach ( $all_product_cats as $cat_id ) {
-                    if ( in_array( (int) $cat_id, $gated_cats, true ) ) {
-                        update_term_meta( (int) $cat_id, 'unq_agev_category_required', 'yes' );
-                    } else {
-                        delete_term_meta( (int) $cat_id, 'unq_agev_category_required' );
-                    }
+        // Delta update: only touch categories that are actually changing.
+        // Fetching currently-gated IDs is O(gated) instead of O(all_categories).
+        if ( function_exists( 'get_terms' ) && function_exists( 'update_term_meta' ) ) {
+            $currently_gated = get_terms( array(
+                'taxonomy'   => 'product_cat',
+                'hide_empty' => false,
+                'fields'     => 'ids',
+                'meta_key'   => 'unq_agev_category_required', // phpcs:ignore WordPress.DB.SlowDBQuery.slow_db_query_meta_key
+                'meta_value' => 'yes',                        // phpcs:ignore WordPress.DB.SlowDBQuery.slow_db_query_meta_value
+            ) );
+            $currently_gated = is_array( $currently_gated ) ? array_map( 'intval', $currently_gated ) : array();
+
+            // Add gating to newly-selected categories.
+            foreach ( $gated_cats as $cat_id ) {
+                update_term_meta( $cat_id, 'unq_agev_category_required', 'yes' );
+            }
+
+            // Remove gating from categories that were previously gated but are no longer selected.
+            foreach ( $currently_gated as $cat_id ) {
+                if ( ! in_array( $cat_id, $gated_cats, true ) ) {
+                    delete_term_meta( $cat_id, 'unq_agev_category_required' );
                 }
             }
         }
@@ -1490,7 +1192,7 @@ add_action( 'template_redirect', function () {
   <title>Age Verification Callback</title>
 </head>
 <body>
-  <script src="' . $sdk_url . '"></script>
+  <script src="' . $sdk_url . '"' . ( UNQ_AGEV_SDK_SRI ? ' integrity="' . esc_attr( UNQ_AGEV_SDK_SRI ) . '" crossorigin="anonymous"' : '' ) . '></script>
   <script>
     (function () {
       // mode is injected by PHP — "popup" (default) or "redirect".
@@ -1684,15 +1386,15 @@ add_action( 'wp_enqueue_scripts', function () {
         return;
     }
 
-    $shared_data = array(
-        'sdkUrl'      => UNQ_AGEV_SDK_URL,
-        'publicKey'   => unq_agev_active_key(),
-        'ageToVerify' => unq_agev_cart_required_age(),
-        'redirectUri' => home_url( '/unqverify/callback/' ),
-        'mode'        => unq_agev_get( 'mode' ),
-    );
-
     if ( is_cart() ) {
+        $shared_data = array(
+            'sdkUrl'       => UNQ_AGEV_SDK_URL,
+            'sdkIntegrity' => UNQ_AGEV_SDK_SRI,
+            'publicKey'    => unq_agev_active_key(),
+            'ageToVerify'  => unq_agev_cart_required_age(),
+            'redirectUri'  => home_url( '/unqverify/callback/' ),
+            'mode'         => unq_agev_get( 'mode' ),
+        );
         wp_enqueue_script(
             'unq-age-cart',
             UNQ_AGEV_URL . 'assets/cart.js',
@@ -1707,6 +1409,32 @@ add_action( 'wp_enqueue_scripts', function () {
                 'checkoutUrl' => wc_get_checkout_url(),
                 'nonce'       => wp_create_nonce( 'unq_age_cart' ),
                 'i18n'        => unq_agev_strings( unq_agev_resolve_locale(), unq_agev_cart_required_age() ),
+            ) )
+        );
+    }
+
+    if ( is_checkout() && ! is_wc_endpoint_url( 'order-received' ) && ! is_wc_endpoint_url( 'order-pay' ) ) {
+        $shared_data = array(
+            'sdkUrl'       => UNQ_AGEV_SDK_URL,
+            'sdkIntegrity' => UNQ_AGEV_SDK_SRI,
+            'publicKey'    => unq_agev_active_key(),
+            'ageToVerify'  => unq_agev_cart_required_age(),
+            'redirectUri'  => home_url( '/unqverify/callback/' ),
+            'mode'         => unq_agev_get( 'mode' ),
+        );
+        wp_enqueue_script(
+            'unq-age-checkout',
+            UNQ_AGEV_URL . 'assets/checkout.js',
+            array( 'jquery' ),
+            UNQ_AGEV_VERSION,
+            true
+        );
+        wp_localize_script(
+            'unq-age-checkout',
+            'UNQCheckout',
+            array_merge( $shared_data, array(
+                'nonce' => wp_create_nonce( 'unq_age_checkout' ),
+                'i18n'  => unq_agev_strings( unq_agev_resolve_locale(), unq_agev_cart_required_age() ),
             ) )
         );
     }

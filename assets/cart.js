@@ -36,6 +36,10 @@
     _sdkPromise = new Promise(function (resolve, reject) {
       var script = document.createElement("script");
       script.src = UNQCart.sdkUrl;
+      if (UNQCart.sdkIntegrity) {
+        script.integrity = UNQCart.sdkIntegrity;
+        script.crossOrigin = "anonymous";
+      }
       script.async = true;
       script.onload = function () {
         if (window.UnqVerify) {

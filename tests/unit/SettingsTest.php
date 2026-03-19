@@ -479,5 +479,66 @@ class SettingsTest extends TestCase {
 
         $this->assertSame( 18, unq_agev_cart_required_age( array( array( 'product_id' => 5 ) ) ) );
     }
-}
 
+    // ------------------------------------------------------------------
+    // 50. unq_agev_strings() returns all keys required by checkout.js
+    //     (verifyPrompt, verified, denied, cancelled, popupBlocked, error,
+    //      modalTitle, modalBody, modalVerifyBtn, modalCancelBtn).
+    // ------------------------------------------------------------------
+
+    public function test_strings_contains_all_checkout_js_keys(): void {
+        $required_keys = array(
+            'verifyPrompt', 'verified', 'denied', 'cancelled',
+            'popupBlocked', 'error', 'modalTitle', 'modalBody',
+            'modalVerifyBtn', 'modalCancelBtn',
+        );
+
+        foreach ( array( 'en', 'da' ) as $locale ) {
+            $strings = unq_agev_strings( $locale );
+            foreach ( $required_keys as $key ) {
+                $this->assertArrayHasKey(
+                    $key,
+                    $strings,
+                    "Missing key '$key' in unq_agev_strings('$locale')"
+                );
+                $this->assertNotEmpty(
+                    $strings[ $key ],
+                    "Empty value for key '$key' in unq_agev_strings('$locale')"
+                );
+            }
+        }
+    }
+
+    // ------------------------------------------------------------------
+    // 51. unq_agev_get() returns the same value on repeated calls for the
+    //     same key (idempotence — prerequisite for safe memoization).
+    // ------------------------------------------------------------------
+
+    public function test_get_returns_same_value_on_repeated_calls(): void {
+        Functions\when( 'get_option' )->alias( function ( $opt, $def = null ) {
+            if ( 'unq_agev_required_age' === $opt ) return '21';
+            return $def;
+        } );
+
+        $first  = unq_agev_get( 'required_age' );
+        $second = unq_agev_get( 'required_age' );
+        $this->assertSame( $first, $second, 'unq_agev_get() must return identical values on repeated calls' );
+        $this->assertSame( 21, $first );
+    }
+
+    // ------------------------------------------------------------------
+    // 52. unq_agev_strings() interpolates the $age parameter into modalBody
+    //     for both EN and DA locales.
+    // ------------------------------------------------------------------
+
+    public function test_strings_interpolates_age_into_modal_body(): void {
+        foreach ( array( 'en', 'da' ) as $locale ) {
+            $strings = unq_agev_strings( $locale, 15 );
+            $this->assertStringContainsString(
+                '15',
+                $strings['modalBody'],
+                "modalBody in '$locale' should contain the age '15'"
+            );
+        }
+    }
+}
