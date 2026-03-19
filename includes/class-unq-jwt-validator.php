@@ -95,7 +95,9 @@ class UNQ_JWT_Validator {
         }
 
         set_transient( $transient, $pem, self::TRANSIENT_TTL );
-        update_option( $stale_option, $pem );
+        // autoload=false: the stale key is only needed when the transient is gone
+        // and the live endpoint is unreachable, so it should not inflate every request.
+        update_option( $stale_option, $pem, false );
 
         return $pem;
     }

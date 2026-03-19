@@ -115,6 +115,15 @@ if ( ! function_exists( 'unq_agev_active_key' ) ) {
     }
 }
 
+// Stub for unq_agev_canonical_product_id() — in tests there is no WPML/Polylang,
+// so we always return the product ID unchanged. Individual tests can override
+// behaviour by mocking apply_filters('wpml_object_id', ...) via Brain\Monkey.
+if ( ! function_exists( 'unq_agev_canonical_product_id' ) ) {
+    function unq_agev_canonical_product_id( $product_id ) {
+        return (int) $product_id;
+    }
+}
+
 // Stub for unq_agev_cart_is_gated() — cart helpers need a WC cart stub.
 // Unit tests exercise the logic directly via helper functions defined below.
 if ( ! function_exists( 'unq_agev_cart_is_gated' ) ) {

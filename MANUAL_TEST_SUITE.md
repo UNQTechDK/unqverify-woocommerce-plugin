@@ -1,6 +1,6 @@
 # Manual Test Suite — Aldersverificering for WooCommerce
 
-**Plugin version:** 0.2.0  
+**Plugin version:** 1.0.0  
 **Last updated:** 2026-03-18
 
 This document is a complete step-by-step guide for manually testing every feature of the age verification plugin. It is written for someone with no prior WordPress or WooCommerce experience. Follow the sections in order — each section builds on the setup and state from the one before it.

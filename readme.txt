@@ -4,7 +4,7 @@ Tags: woocommerce, age-verification, mitid, denmark, aldersverificering
 Requires at least: 6.0
 Tested up to: 6.7
 Requires PHP: 7.4
-Stable tag: 0.2.0
+Stable tag: 1.0.0
 License: GPL-2.0-or-later
 License URI: https://www.gnu.org/licenses/gpl-2.0.html
 
@@ -29,6 +29,8 @@ When a customer proceeds to checkout with age-restricted products in their cart,
 * Test and production environments with separate API keys
 * Popup and redirect verification flows
 * Danish and English storefront strings; admin UI fully translatable
+* WPML and Polylang compatible
+* Safe for WordPress Multisite (single-site activation only)
 
 == Installation ==
 
@@ -58,6 +60,20 @@ Yes. In **selected products & categories** mode you can set a per-category age o
 
 The checkout button is re-enabled and the customer can try again. No order is placed until a valid, unexpired MitID token is returned.
 
+= Does the plugin work in a WordPress Multisite installation? =
+
+The plugin is configured for single-site activation only (`Network: false`). A network
+admin cannot activate it across all sites at once. Each sub-site admin must activate
+and configure the plugin independently, which is the recommended approach since each
+store needs its own API key and settings.
+
+= Does it work with WPML or Polylang? =
+
+Yes. When WPML or Polylang is active the plugin automatically resolves translated
+products to their source-language variant before reading per-product age gate settings.
+This ensures age gate flags and age overrides set on a product apply to all translations
+of that product.
+
 = Does the plugin store personal data? =
 
 The plugin reads a short-lived JWT cookie set by the MitID flow during checkout validation and immediately discards it. No personal data is persisted to the database.
@@ -68,7 +84,18 @@ All plugin options, category gating meta, product gating meta, and JWKS cache ar
 
 == Changelog ==
 
+= 1.0.0 =
+* Extracted all helper functions into `includes/functions.php` for cleaner code organisation.
+* Registered all plugin options via `register_setting()` with sanitize callbacks (WordPress.org submission requirement).
+* Added `current_user_can()` capability checks in all settings and meta save handlers.
+* Fixed JWKS stale-cache option to not autoload (`update_option(..., false)`).
+* Added term-meta cache pre-warming on the Products list screen to eliminate N+1 queries.
+
 = 0.2.0 =
+* Added WPML and Polylang support: translated products resolve to source-language post for per-product meta reads.
+* Added per-request cart cache invalidation on `woocommerce_cart_updated`, `woocommerce_add_to_cart`, etc. — prevents stale gating results when other plugins modify the cart mid-request.
+* Added jQuery availability guard to cart.js and checkout.js — prevents ReferenceError on stores where performance plugins defer jQuery loading.
+* Added `Network: false` in plugin header — prevents accidental network-wide activation in Multisite.
 * Added three-tier age resolution: store default → category override → product override.
 * Added per-category and per-product age override fields in the WooCommerce admin.
 * Added age gate columns on the Products and Product Categories list screens.

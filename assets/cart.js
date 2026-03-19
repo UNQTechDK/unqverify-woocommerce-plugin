@@ -2,6 +2,13 @@
 (function ($) {
   "use strict";
 
+  // Guard: if jQuery was deferred/async by a performance plugin it may not be
+  // available at IIFE invocation time. Bail early to avoid a ReferenceError.
+  if (!$) {
+    console.warn("[UNQVerify] jQuery not available — age gate UI skipped.");
+    return;
+  }
+
   var MSG_ID = "unq-age-cart-notice";
   var MODAL_ID = "unq-age-modal";
 
@@ -513,4 +520,4 @@
   } else {
     init();
   }
-})(jQuery);
+})(typeof jQuery !== "undefined" ? jQuery : null);
