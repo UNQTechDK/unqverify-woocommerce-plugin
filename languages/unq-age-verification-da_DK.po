@@ -3,7 +3,7 @@
 # This file is distributed under the same license as the plugin.
 msgid ""
 msgstr ""
-"Project-Id-Version: UNQVerify Age Verification for WooCommerce 1.0.0\n"
+"Project-Id-Version: UNQVerify Age Verification for WooCommerce 1.1.0\n"
 "Report-Msgid-Bugs-To: support@aldersverificering.dk\n"
 "POT-Creation-Date: 2026-03-18T00:00:00+00:00\n"
 "PO-Revision-Date: 2026-03-18T00:00:00+00:00\n"
@@ -14,6 +14,32 @@ msgstr ""
 "Content-Type: text/plain; charset=UTF-8\n"
 "Content-Transfer-Encoding: 8bit\n"
 "Plural-Forms: nplurals=2; plural=(n != 1);\n"
+
+# ── Variation inventory fields ──────────────────────────────────────────────
+
+msgid "Require age verification for this variation"
+msgstr "Kræv aldersverificering for denne variant"
+
+msgid "This variation is already covered by a parent product or category rule. A direct rule is additive and can set its own age."
+msgstr "Denne variant er allerede omfattet af en regel på moderproduktet eller kategorien. En direkte regel er supplerende og kan angive sin egen alder."
+
+msgid "This variation has no inherited age-verification rule."
+msgstr "Denne variant har ingen nedarvet regel for aldersverificering."
+
+msgid "Leave empty to inherit the parent, category, or store age."
+msgstr "Lad feltet være tomt for at arve alder fra moderproduktet, kategorien eller butikken."
+
+msgid "Variation rules active"
+msgstr "Variantregler er aktive"
+
+#, php-format
+msgid "%d variation has a direct age-verification rule."
+msgid_plural "%d variations have direct age-verification rules."
+msgstr[0] "%d variant har en direkte regel for aldersverificering."
+msgstr[1] "%d varianter har direkte regler for aldersverificering."
+
+msgid "They add to parent and category rules. A variation age override takes precedence only for that variation."
+msgstr "De supplerer regler på moderproduktet og kategorien. En aldersoverstyring på en variant har kun forrang for den pågældende variant."
 
 # ── Settings tab ─────────────────────────────────────────────────────────────
 

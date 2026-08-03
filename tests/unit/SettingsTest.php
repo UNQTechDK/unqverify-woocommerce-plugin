@@ -18,11 +18,18 @@ class SettingsTest extends TestCase {
     protected function setUp(): void {
         parent::setUp();
         Monkey\setUp();
+        $GLOBALS['unq_agev_test_cart_items'] = array();
+        unq_agev_reset_cart_cache();
     }
 
     protected function tearDown(): void {
         Monkey\tearDown();
         parent::tearDown();
+    }
+
+    protected function set_cart_items( array $items ): void {
+        $GLOBALS['unq_agev_test_cart_items'] = $items;
+        unq_agev_reset_cart_cache();
     }
 
     // ------------------------------------------------------------------
@@ -314,7 +321,8 @@ class SettingsTest extends TestCase {
             return $def;
         } );
 
-        $this->assertTrue( unq_agev_cart_is_gated( array() ) );
+        $this->set_cart_items( array() );
+        $this->assertTrue( unq_agev_cart_is_gated() );
     }
 
     // ------------------------------------------------------------------
@@ -327,7 +335,8 @@ class SettingsTest extends TestCase {
             return $def;
         } );
 
-        $this->assertFalse( unq_agev_cart_is_gated( array() ) );
+        $this->set_cart_items( array() );
+        $this->assertFalse( unq_agev_cart_is_gated() );
     }
 
     // ------------------------------------------------------------------
@@ -347,7 +356,8 @@ class SettingsTest extends TestCase {
         Functions\when( 'get_post_meta' )->alias( fn() => '' );
         Functions\when( 'get_the_terms' )->alias( fn() => array() );
 
-        $this->assertFalse( unq_agev_cart_is_gated( array( array( 'product_id' => 99 ) ) ) );
+        $this->set_cart_items( array( array( 'product_id' => 99 ) ) );
+        $this->assertFalse( unq_agev_cart_is_gated() );
     }
 
     // ------------------------------------------------------------------
@@ -369,7 +379,8 @@ class SettingsTest extends TestCase {
         } );
         Functions\when( 'get_the_terms' )->alias( fn() => array() );
 
-        $this->assertTrue( unq_agev_cart_is_gated( array( array( 'product_id' => 42 ) ) ) );
+        $this->set_cart_items( array( array( 'product_id' => 42 ) ) );
+        $this->assertTrue( unq_agev_cart_is_gated() );
     }
 
     // ------------------------------------------------------------------
@@ -396,7 +407,8 @@ class SettingsTest extends TestCase {
             return '';
         } );
 
-        $this->assertTrue( unq_agev_cart_is_gated( array( array( 'product_id' => 55 ) ) ) );
+        $this->set_cart_items( array( array( 'product_id' => 55 ) ) );
+        $this->assertTrue( unq_agev_cart_is_gated() );
     }
 
     // ------------------------------------------------------------------
@@ -410,7 +422,8 @@ class SettingsTest extends TestCase {
             return $def;
         } );
 
-        $this->assertSame( 21, unq_agev_cart_required_age( array() ) );
+        $this->set_cart_items( array() );
+        $this->assertSame( 21, unq_agev_cart_required_age() );
     }
 
     // ------------------------------------------------------------------
@@ -430,7 +443,8 @@ class SettingsTest extends TestCase {
         } );
         Functions\when( 'get_the_terms' )->alias( fn() => array() );
 
-        $this->assertSame( 21, unq_agev_cart_required_age( array( array( 'product_id' => 10 ) ) ) );
+        $this->set_cart_items( array( array( 'product_id' => 10 ) ) );
+        $this->assertSame( 21, unq_agev_cart_required_age() );
     }
 
     // ------------------------------------------------------------------
@@ -456,7 +470,8 @@ class SettingsTest extends TestCase {
             array( 'product_id' => 10 ),
             array( 'product_id' => 20 ),
         );
-        $this->assertSame( 21, unq_agev_cart_required_age( $items ) );
+        $this->set_cart_items( $items );
+        $this->assertSame( 21, unq_agev_cart_required_age() );
     }
 
     // ------------------------------------------------------------------
@@ -477,7 +492,8 @@ class SettingsTest extends TestCase {
         } );
         Functions\when( 'get_the_terms' )->alias( fn() => array() );
 
-        $this->assertSame( 18, unq_agev_cart_required_age( array( array( 'product_id' => 5 ) ) ) );
+        $this->set_cart_items( array( array( 'product_id' => 5 ) ) );
+        $this->assertSame( 18, unq_agev_cart_required_age() );
     }
 
     // ------------------------------------------------------------------
@@ -706,7 +722,8 @@ class SettingsTest extends TestCase {
         } );
 
         // Cart contains one product; its effective age should come from the category (17).
-        $result = unq_agev_cart_required_age( array( array( 'product_id' => 6 ) ) );
+        $this->set_cart_items( array( array( 'product_id' => 6 ) ) );
+        $result = unq_agev_cart_required_age();
         $this->assertSame( 17, $result );
     }
 
@@ -736,7 +753,8 @@ class SettingsTest extends TestCase {
             return '';
         } );
 
-        $result = unq_agev_cart_is_gated( array( array( 'product_id' => 7 ) ) );
+        $this->set_cart_items( array( array( 'product_id' => 7 ) ) );
+        $result = unq_agev_cart_is_gated();
         $this->assertFalse( $result );
     }
 
@@ -770,7 +788,68 @@ class SettingsTest extends TestCase {
             return '';
         } );
 
-        $result = unq_agev_cart_is_gated( array( array( 'product_id' => 8 ) ) );
+        $this->set_cart_items( array( array( 'product_id' => 8 ) ) );
+        $result = unq_agev_cart_is_gated();
         $this->assertFalse( $result );
+    }
+
+    public function test_cart_is_gated_when_only_the_selected_variation_is_flagged(): void {
+        Functions\when( 'get_option' )->alias( function ( $option, $default = null ) {
+            if ( 'unq_agev_enabled' === $option ) return 'yes';
+            if ( 'unq_agev_targeting' === $option ) return 'selected_only';
+            if ( 'unq_agev_test_public_key' === $option ) return 'pk_test_key';
+            return $default;
+        } );
+        Functions\when( 'get_post_meta' )->alias( function ( $id, $key ) {
+            return 101 === $id && '_unq_agev_required' === $key ? 'yes' : '';
+        } );
+        Functions\when( 'get_the_terms' )->justReturn( array() );
+
+        $this->set_cart_items( array( array( 'product_id' => 100, 'variation_id' => 101 ) ) );
+
+        $this->assertTrue( unq_agev_cart_is_gated() );
+    }
+
+    public function test_cart_does_not_leak_a_variation_rule_to_a_sibling(): void {
+        Functions\when( 'get_option' )->alias( function ( $option, $default = null ) {
+            if ( 'unq_agev_enabled' === $option ) return 'yes';
+            if ( 'unq_agev_targeting' === $option ) return 'selected_only';
+            if ( 'unq_agev_test_public_key' === $option ) return 'pk_test_key';
+            return $default;
+        } );
+        Functions\when( 'get_post_meta' )->alias( function ( $id, $key ) {
+            return 101 === $id && '_unq_agev_required' === $key ? 'yes' : '';
+        } );
+        Functions\when( 'get_the_terms' )->justReturn( array() );
+
+        $this->set_cart_items( array( array( 'product_id' => 100, 'variation_id' => 102 ) ) );
+
+        $this->assertFalse( unq_agev_cart_is_gated() );
+    }
+
+    public function test_variation_age_override_wins_over_parent_and_category(): void {
+        Functions\when( 'get_option' )->alias( function ( $option, $default = null ) {
+            if ( 'unq_agev_targeting' === $option ) return 'selected_only';
+            if ( 'unq_agev_required_age' === $option ) return '18';
+            return $default;
+        } );
+        Functions\when( 'get_post_meta' )->alias( function ( $id, $key ) {
+            if ( 101 === $id && '_unq_agev_required' === $key ) return 'yes';
+            if ( 101 === $id && '_unq_agev_required_age' === $key ) return '21';
+            if ( 100 === $id && '_unq_agev_required_age' === $key ) return '19';
+            return '';
+        } );
+        $term          = new \stdClass();
+        $term->term_id = 9;
+        Functions\when( 'get_the_terms' )->justReturn( array( $term ) );
+        Functions\when( 'get_term_meta' )->alias( function ( $term_id, $key ) {
+            if ( 'unq_agev_category_required' === $key ) return 'yes';
+            if ( 'unq_agev_category_required_age' === $key ) return '20';
+            return '';
+        } );
+
+        $this->set_cart_items( array( array( 'product_id' => 100, 'variation_id' => 101 ) ) );
+
+        $this->assertSame( 21, unq_agev_cart_required_age() );
     }
 }

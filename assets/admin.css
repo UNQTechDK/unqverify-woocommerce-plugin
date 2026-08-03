@@ -442,3 +442,28 @@
 /* ---- Product meta box — status indicator ------------------------- */
 .unq-mb-status      { margin: 8px 0 12px; }
 .unq-mb-status-desc { margin: 4px 0 0; font-size: 11px; color: #64748b; line-height: 1.4; }
+.unq-mb-variation-notice {
+    margin: 10px 0;
+    padding: 9px 10px;
+    border-left: 3px solid #f59e0b;
+    background: #fffbeb;
+    color: #713f12;
+    font-size: 12px;
+    line-height: 1.45;
+}
+.unq-mb-variation-notice p { margin: 3px 0 0; }
+
+/* ---- Variation age-verification fields --------------------------- */
+.unq-agev-variation-fields {
+    margin: 10px 0 4px;
+    padding: 10px 12px;
+    background: #f8fafc;
+    border: 1px solid #e2e8f0;
+    border-radius: 6px;
+}
+.unq-agev-variation-fields .form-field { margin: 0 0 8px; }
+.unq-agev-variation-fields .form-field:last-child { margin-bottom: 0; }
+.unq-agev-variation-toggle { display: inline-flex; align-items: center; gap: 8px; }
+.unq-agev-variation-toggle input[type="checkbox"] { margin: 0; flex: 0 0 auto; }
+.unq-agev-variation-inherited { margin: 0 0 8px; color: #64748b; }
+.unq-agev-variation-age[hidden] { display: none; }

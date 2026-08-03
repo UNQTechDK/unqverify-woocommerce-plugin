@@ -1,0 +1,21 @@
+{
+  "name": "unqverify-woocommerce-plugin-dev",
+  "private": true,
+  "scripts": {
+    "start": "wp-env start",
+    "stop": "wp-env stop",
+    "destroy": "wp-env destroy",
+    "test": "composer exec phpunit -- --configuration=phpunit.xml.dist",
+    "test:unit": "composer exec phpunit -- --configuration=phpunit.xml.dist",
+    "seed:products": "wp-env run cli -- wp eval-file /var/www/html/wp-content/plugins/unqverify-woocommerce-plugin/scripts/seed-products.php",
+    "test:integration": "pnpm seed:products && wp-env run cli -- wp eval-file /var/www/html/wp-content/plugins/unqverify-woocommerce-plugin/scripts/verify-variation-admin.php",
+    "test:e2e": "pnpm seed:products && wp-env run cli -- wp user update admin --user_pass=admin && playwright test && pnpm seed:products",
+    "make:mo": "node scripts/make-mo.js",
+    "build:zip": "node scripts/build-zip.js"
+  },
+  "devDependencies": {
+    "@playwright/test": "^1.62.1",
+    "@wordpress/env": "^11.2.0",
+    "gettext-parser": "^9.0.2"
+  }
+}

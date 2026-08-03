@@ -1,6 +1,6 @@
 # Manual Test Suite — Aldersverificering for WooCommerce
 
-**Plugin version:** 1.0.0  
+**Plugin version:** 1.1.0
 **Last updated:** 2026-03-18
 
 This document is a complete step-by-step guide for manually testing every feature of the age verification plugin. It is written for someone with no prior WordPress or WooCommerce experience. Follow the sections in order — each section builds on the setup and state from the one before it.
@@ -27,18 +27,22 @@ This document is a complete step-by-step guide for manually testing every featur
    - [7A. Mark a Product via Meta Box](#7a-mark-a-product-via-meta-box)
    - [7B. Per-Product Age Override](#7b-per-product-age-override)
    - [7C. Max-Age Logic Across Multiple Items](#7c-max-age-logic-across-multiple-items)
-8. [Products List Age Gate Column](#8-products-list-age-gate-column)
-9. [Redirect Mode](#9-redirect-mode)
-10. [Plugin Disabled State](#10-plugin-disabled-state)
-11. [Admin Notice — Missing Key](#11-admin-notice--missing-key)
-12. [Production Mode](#12-production-mode)
-13. [Locale / Language](#13-locale--language)
-14. [Edge Cases](#14-edge-cases)
-    - [14A. Expired JWT Cookie](#14a-expired-jwt-cookie)
-    - [14B. Order-Pay Page (Return to Pay)](#14b-order-pay-page-return-to-pay)
-    - [14C. Thank-You Page](#14c-thank-you-page)
-    - [14D. Empty Cart Direct Checkout URL](#14d-empty-cart-direct-checkout-url)
-15. [Quick Reference — Pass/Fail Checklist](#15-quick-reference--passfail-checklist)
+8. [Per-Variation Rules](#8-per-variation-rules)
+   - [8A. Direct Variation Rule](#8a-direct-variation-rule)
+   - [8B. Inherited Parent and Category Rules](#8b-inherited-parent-and-category-rules)
+   - [8C. Variation Age Override](#8c-variation-age-override)
+9. [Products List Age Gate Column](#9-products-list-age-gate-column)
+10. [Redirect Mode](#10-redirect-mode)
+11. [Plugin Disabled State](#11-plugin-disabled-state)
+12. [Admin Notice — Missing Key](#12-admin-notice--missing-key)
+13. [Production Mode](#13-production-mode)
+14. [Locale / Language](#14-locale--language)
+15. [Edge Cases](#15-edge-cases)
+   - [15A. Expired JWT Cookie](#15a-expired-jwt-cookie)
+   - [15B. Order-Pay Page (Return to Pay)](#15b-order-pay-page-return-to-pay)
+   - [15C. Thank-You Page](#15c-thank-you-page)
+   - [15D. Empty Cart Direct Checkout URL](#15d-empty-cart-direct-checkout-url)
+16. [Quick Reference — Pass/Fail Checklist](#16-quick-reference--passfail-checklist)
 
 ---
 
@@ -392,7 +396,42 @@ Test steps:
 
 ---
 
-## 8. Products List Age Gate Column
+## 8. Per-Variation Rules
+
+Create a variable product named **Configurable Item** with Size options **S** and **L**, and Eligibility options **Unrestricted** and **Age-restricted**. This creates four exact variations. Do not mark the parent product or either category as gated before starting this section.
+
+### 8A. Direct Variation Rule
+
+1. Edit **Configurable Item** and select **Variable product** in Product data.
+2. Open the **Variations** tab and expand **L / Age-restricted**.
+3. At the bottom of the expanded variation, tick **Require age verification for this variation**. Confirm the control is visible without enabling **Manage stock?**, leave the age override empty, and update the product.
+4. Add **L / Unrestricted** to a private browser window and go to checkout.
+5. **Expected result:** Checkout is not age-gated.
+6. Clear the cart, add **L / Age-restricted**, and go to checkout.
+7. **Expected result:** The age gate activates.
+8. Add both variations to the cart.
+9. **Expected result:** The age gate remains active because one cart line is gated.
+
+### 8B. Inherited Parent and Category Rules
+
+1. Edit **Configurable Item** and mark the parent product as age-gated, or assign it to a gated category.
+2. Expand **L / Unrestricted** in the Variations tab.
+3. **Expected result:** The variation displays inherited-rule copy. Do not tick its direct checkbox.
+4. Add **L / Unrestricted** to a private browser window and go to checkout.
+5. **Expected result:** The age gate activates. A direct variation setting never exempts a parent/category rule.
+
+### 8C. Variation Age Override
+
+1. Remove the parent/category gate used in 8B.
+2. On **L / Age-restricted**, tick the direct variation checkbox and set **Minimum age override** to `21`.
+3. Update the product, add **L / Age-restricted** to cart, and inspect `UNQCart.ageToVerify` in the browser console.
+4. **Expected result:** It returns `21`, even if the parent/category/store settings are lower.
+5. Untick the variation checkbox, update, reload the editor, and add **L / Age-restricted** again.
+6. **Expected result:** The direct requirement and override are both removed; no stale override remains.
+
+---
+
+## 9. Products List Age Gate Column
 
 1. Go to **Products → All Products**.
 2. **Expected result:** The product list table has a column labelled **"Age gate"** after the product title.
@@ -411,7 +450,7 @@ Test steps:
 
 ---
 
-## 9. Redirect Mode
+## 10. Redirect Mode
 
 The plugin supports two modes: **Popup** (default) and **Full-page redirect**. In redirect mode, instead of opening a popup window, the browser navigates the customer to MitID and back to `/unqverify/callback/`.
 
@@ -428,7 +467,7 @@ The plugin supports two modes: **Popup** (default) and **Full-page redirect**. I
 
 ---
 
-## 10. Plugin Disabled State
+## 11. Plugin Disabled State
 
 1. Go to **WooCommerce → Settings → UNQVerify**.
 2. **Turn off** the enable toggle (switch turns grey).
@@ -444,7 +483,7 @@ The plugin supports two modes: **Popup** (default) and **Full-page redirect**. I
 
 ---
 
-## 11. Admin Notice — Missing Key
+## 12. Admin Notice — Missing Key
 
 1. Go to **WooCommerce → Settings → UNQVerify**.
 2. **Clear** the Test Public Key field (delete all content).
@@ -462,7 +501,7 @@ The plugin supports two modes: **Popup** (default) and **Full-page redirect**. I
 
 ---
 
-## 12. Production Mode
+## 13. Production Mode
 
 > **Prerequisites:** You must have a `pk_live_...` production key from your account at aldersverificering.dk. If you do not have one, **skip to section 13** and come back when you have an active subscription.
 >
@@ -479,7 +518,7 @@ The plugin supports two modes: **Popup** (default) and **Full-page redirect**. I
 
 ---
 
-## 13. Locale / Language
+## 14. Locale / Language
 
 ### 13.1 Force Danish
 
@@ -509,9 +548,9 @@ The plugin supports two modes: **Popup** (default) and **Full-page redirect**. I
 
 ---
 
-## 14. Edge Cases
+## 15. Edge Cases
 
-### 14A. Expired JWT Cookie
+### 15A. Expired JWT Cookie
 
 This test verifies that an expired or tampered JWT cookie is correctly rejected and does not allow checkout.
 
@@ -524,7 +563,7 @@ This test verifies that an expired or tampered JWT cookie is correctly rejected 
 
 > **Note:** You can also wait for the JWT to expire naturally (the token has a built-in expiry). Test this by checking the jwt.io payload of the real token and waiting until after the `exp` timestamp.
 
-### 14B. Order-Pay Page (Return to Pay)
+### 15B. Order-Pay Page (Return to Pay)
 
 The `/checkout/order-pay/` endpoint is used when a customer returns to complete a payment for an existing order (e.g. failed card, offline payment). The age gate must NOT block this page.
 
@@ -536,14 +575,14 @@ The `/checkout/order-pay/` endpoint is used when a customer returns to complete 
 6. Paste the payment URL (which will be like `/checkout/order-pay/123/?pay_for_order=true&key=wc_order_...`).
 7. **Expected result:** The order-pay page **loads normally**. You are NOT redirected to the cart. The age gate does not block returning customers.
 
-### 14C. Thank-You Page
+### 15C. Thank-You Page
 
 1. After successfully placing an order (from section 5C or 6D), note the order-received URL: `/checkout/order-received/XXXX/?key=...`.
 2. Clear the `unqverify_token` cookie from devtools.
 3. Navigate back to the order-received URL.
 4. **Expected result:** The page loads normally. No redirect to cart.
 
-### 14D. Empty Cart Direct Checkout URL
+### 15D. Empty Cart Direct Checkout URL
 
 1. Clear cookies. Make sure the cart is **empty** (in the store front-end, go to `/cart/` and remove all items if any).
 2. Navigate to `/checkout/`.
@@ -551,7 +590,7 @@ The `/checkout/order-pay/` endpoint is used when a customer returns to complete 
 
 ---
 
-## 15. Quick Reference — Pass/Fail Checklist
+## 16. Quick Reference — Pass/Fail Checklist
 
 Use this table as a final sign-off checklist. Mark each test ✅ Pass or ❌ Fail.
 
@@ -581,6 +620,9 @@ Use this table as a final sign-off checklist. Mark each test ✅ Pass or ❌ Fai
 | 7A | Marking product via meta box triggers age gate | | |
 | 7B | Per-product age override saves and is used as `ageToVerify` | | |
 | 7C | `ageToVerify` = max age across multiple gated items | | |
+| 8A | Age-restricted variation gates without gating its sibling | | |
+| 8B | Parent/category inheritance gates every variation | | |
+| 8C | Variation override takes precedence and clears correctly | | |
 | 8 | "Age gate" column appears in Products list | | |
 | 8 | Column shows "Store-wide" pill when scope = all products | | |
 | 8 | Column shows correct pill per product when scope = selected | | |

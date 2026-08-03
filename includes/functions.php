@@ -35,10 +35,6 @@ if ( ! defined( 'ABSPATH' ) ) {
  * @return mixed
  */
 function unq_agev_get( $key ) {
-    static $cache = array();
-    if ( array_key_exists( $key, $cache ) ) {
-        return $cache[ $key ];
-    }
     switch ( $key ) {
         case 'enabled':
             $value = get_option( 'unq_agev_enabled', 'yes' );
@@ -71,8 +67,7 @@ function unq_agev_get( $key ) {
         default:
             return '';
     }
-    $cache[ $key ] = $value;
-    return $cache[ $key ];
+    return $value;
 }
 
 /**
@@ -95,8 +90,8 @@ function unq_agev_active_key() {
 }
 
 /**
- * Resolves a possibly-translated product ID to the canonical (source-language)
- * product ID.
+ * Resolves a possibly-translated post ID to the canonical (source-language)
+ * post ID.
  *
  * When WPML or Polylang is active, translated products are separate posts whose
  * IDs differ from the original. Per-product age gate meta is stored only on the
@@ -104,18 +99,20 @@ function unq_agev_active_key() {
  *
  * Falls back to the original $product_id when neither plugin is active.
  *
- * @param  int $product_id
+ * @param  int    $post_id
+ * @param  string $post_type
  * @return int
  */
-function unq_agev_canonical_product_id( $product_id ) {
-    $product_id = (int) $product_id;
+function unq_agev_canonical_product_id( $post_id, $post_type = 'product' ) {
+    $post_id   = absint( $post_id );
+    $post_type = 'product_variation' === $post_type ? 'product_variation' : 'product';
 
     // WPML: wpml_object_id filter returns the matching post ID in any language.
     // Passing the default language always returns the source-language post.
     if ( has_filter( 'wpml_object_id' ) ) {
         $default_lang = apply_filters( 'wpml_default_language', null );
         if ( null !== $default_lang ) {
-            $canonical = (int) apply_filters( 'wpml_object_id', $product_id, 'product', true, $default_lang );
+            $canonical = (int) apply_filters( 'wpml_object_id', $post_id, $post_type, true, $default_lang );
             if ( $canonical > 0 ) {
                 return $canonical;
             }
@@ -124,13 +121,76 @@ function unq_agev_canonical_product_id( $product_id ) {
 
     // Polylang: pll_get_post() returns the same post in the requested language.
     if ( function_exists( 'pll_get_post' ) && function_exists( 'pll_default_language' ) ) {
-        $canonical = (int) pll_get_post( $product_id, pll_default_language() );
+        $canonical = (int) pll_get_post( $post_id, pll_default_language() );
         if ( $canonical > 0 ) {
             return $canonical;
         }
     }
 
-    return $product_id;
+    return $post_id;
+}
+
+/**
+ * Returns age-gate rules for one WooCommerce cart line.
+ *
+ * Variation metadata is the most specific rule. Parent product metadata and
+ * categories continue to apply to every child variation.
+ *
+ * @param  array $item WooCommerce cart item data.
+ * @return array{gated: bool, age: int}
+ */
+function unq_agev_cart_item_rules( $item ) {
+    $global_age    = unq_agev_get( 'required_age' );
+    $parent_id     = absint( $item['product_id'] ?? 0 );
+    $variation_id  = absint( $item['variation_id'] ?? 0 );
+    $parent_id     = unq_agev_canonical_product_id( $parent_id, 'product' );
+    $variation_id  = $variation_id ? unq_agev_canonical_product_id( $variation_id, 'product_variation' ) : 0;
+    $is_gated      = 'all' === unq_agev_get( 'targeting' );
+    $category_ages = array();
+
+    if ( $variation_id && 'yes' === get_post_meta( $variation_id, '_unq_agev_required', true ) ) {
+        $is_gated = true;
+    }
+
+    if ( $parent_id && 'yes' === get_post_meta( $parent_id, '_unq_agev_required', true ) ) {
+        $is_gated = true;
+    }
+
+    if ( $parent_id ) {
+        $terms = get_the_terms( $parent_id, 'product_cat' );
+        if ( is_array( $terms ) ) {
+            foreach ( $terms as $term ) {
+                if ( 'yes' !== get_term_meta( $term->term_id, 'unq_agev_category_required', true ) ) {
+                    continue;
+                }
+
+                $is_gated = true;
+                $category_age = (int) get_term_meta( $term->term_id, 'unq_agev_category_required_age', true );
+                if ( $category_age > 0 ) {
+                    $category_ages[] = $category_age;
+                }
+            }
+        }
+    }
+
+    $variation_age = $variation_id ? (int) get_post_meta( $variation_id, '_unq_agev_required_age', true ) : 0;
+    if ( $variation_age > 0 ) {
+        $age = $variation_age;
+    } else {
+        $parent_age = $parent_id ? (int) get_post_meta( $parent_id, '_unq_agev_required_age', true ) : 0;
+        if ( $parent_age > 0 ) {
+            $age = $parent_age;
+        } elseif ( ! empty( $category_ages ) ) {
+            $age = max( $category_ages );
+        } else {
+            $age = $global_age;
+        }
+    }
+
+    return array(
+        'gated' => $is_gated,
+        'age'   => $age,
+    );
 }
 
 /**
@@ -172,23 +232,10 @@ function unq_agev_cart_is_gated( $reset = false ) {
     }
 
     foreach ( WC()->cart->get_cart() as $item ) {
-        $product_id = (int) ( $item['product_id'] ?? 0 );
-        if ( ! $product_id ) {
-            continue;
-        }
-        $canonical_id = unq_agev_canonical_product_id( $product_id );
-        if ( 'yes' === get_post_meta( $canonical_id, '_unq_agev_required', true ) ) {
+        $rules = unq_agev_cart_item_rules( $item );
+        if ( $rules['gated'] ) {
             $cache = true;
             return $cache;
-        }
-        $terms = get_the_terms( $canonical_id, 'product_cat' );
-        if ( is_array( $terms ) ) {
-            foreach ( $terms as $term ) {
-                if ( 'yes' === get_term_meta( $term->term_id, 'unq_agev_category_required', true ) ) {
-                    $cache = true;
-                    return $cache;
-                }
-            }
         }
     }
 
@@ -230,34 +277,13 @@ function unq_agev_cart_required_age( $reset = false ) {
 
     $ages = array();
     foreach ( WC()->cart->get_cart() as $item ) {
-        $product_id = (int) ( $item['product_id'] ?? 0 );
-        if ( ! $product_id ) {
+        $rules = unq_agev_cart_item_rules( $item );
+
+        if ( 'selected_only' === $targeting && ! $rules['gated'] ) {
             continue;
         }
 
-        // For 'selected_only' mode, skip products that are not explicitly gated.
-        if ( 'selected_only' === $targeting ) {
-            $canonical_id = unq_agev_canonical_product_id( $product_id );
-            $is_gated = false;
-            if ( 'yes' === get_post_meta( $canonical_id, '_unq_agev_required', true ) ) {
-                $is_gated = true;
-            } else {
-                $terms = get_the_terms( $canonical_id, 'product_cat' );
-                if ( is_array( $terms ) ) {
-                    foreach ( $terms as $term ) {
-                        if ( 'yes' === get_term_meta( $term->term_id, 'unq_agev_category_required', true ) ) {
-                            $is_gated = true;
-                            break;
-                        }
-                    }
-                }
-            }
-            if ( ! $is_gated ) {
-                continue;
-            }
-        }
-
-        $ages[] = unq_agev_effective_product_age( $product_id );
+        $ages[] = $rules['age'];
     }
 
     $cache = empty( $ages ) ? $global : max( $ages );
@@ -280,19 +306,14 @@ function unq_agev_cart_required_age( $reset = false ) {
  * @return int
  */
 function unq_agev_effective_product_age( $product_id ) {
-    static $cache = array();
     // Resolve translated products (WPML/Polylang) to the source-language variant
     // so per-product meta stored on the source post is always found correctly.
     $product_id = unq_agev_canonical_product_id( (int) $product_id );
-    if ( array_key_exists( $product_id, $cache ) ) {
-        return $cache[ $product_id ];
-    }
 
     // 1. Product-level override.
     $product_override = (int) get_post_meta( $product_id, '_unq_agev_required_age', true );
     if ( $product_override > 0 ) {
-        $cache[ $product_id ] = $product_override;
-        return $cache[ $product_id ];
+        return $product_override;
     }
 
     // 2. Max age across gated categories this product belongs to.
@@ -310,13 +331,11 @@ function unq_agev_effective_product_age( $product_id ) {
         }
     }
     if ( ! empty( $cat_ages ) ) {
-        $cache[ $product_id ] = max( $cat_ages );
-        return $cache[ $product_id ];
+        return max( $cat_ages );
     }
 
     // 3. Store-wide default.
-    $cache[ $product_id ] = unq_agev_get( 'required_age' );
-    return $cache[ $product_id ];
+    return unq_agev_get( 'required_age' );
 }
 
 /**

@@ -32,7 +32,25 @@ MitID-based age verification for WooCommerce checkout using the [UNQVerify SDK](
 
 ---
 
+## Variable Products
+
+In **Selected products & categories** mode, open a variable product in **Product data -> Variations** and expand a variation. The age-verification section at the bottom includes a direct checkbox and an optional age override. It is available whether or not variation-level stock management is enabled.
+
+A direct variation rule gates only that variation. Parent product and gated-category rules remain additive and apply to every variation. Required age is resolved in this order: variation override, parent-product override, highest applicable gated-category override, then the store default.
+
+---
+
 ## Development
+
+Run the automated checks from the plugin root:
+
+```sh
+pnpm test:unit        # Isolated PHP rule and admin callback tests.
+pnpm test:integration # Real WooCommerce variation template smoke test.
+pnpm test:e2e         # wp-admin browser smoke test; requires Docker for wp-env.
+```
+
+`test:integration` and `test:e2e` seed a disposable local WooCommerce site. The browser test verifies the parent variation warning, restricted/unrestricted checkbox states, and persistence after an admin save.
 
 ### Running tests
 

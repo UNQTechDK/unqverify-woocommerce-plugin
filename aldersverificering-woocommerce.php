@@ -3,7 +3,7 @@
  * Plugin Name: Aldersverificering for WooCommerce
  * Plugin URI:  https://www.aldersverificering.dk
  * Description: Aldersverificering med MitID fra Aldersverificering.dk
- * Version:     1.0.0
+ * Version:     1.1.0
  * Author:      UNQTech
  * Author URI:  https://www.aldersverificering.dk
  * Text Domain: unq-age-verification
@@ -18,7 +18,7 @@ if ( ! defined( 'ABSPATH' ) ) {
     exit;
 }
 
-define( 'UNQ_AGEV_VERSION',     '1.0.0' );
+define( 'UNQ_AGEV_VERSION',     '1.1.0' );
 define( 'UNQ_AGEV_PATH',        plugin_dir_path( __FILE__ ) );
 define( 'UNQ_AGEV_URL',         plugin_dir_url( __FILE__ ) );
 define( 'UNQ_AGEV_SDK_URL',     'https://unpkg.com/@unqtech/age-verification-mitid@0.4.3/dist/index.umd.js' );

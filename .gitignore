@@ -4,15 +4,11 @@
 .agents/
 skills-lock.json
 
-# Local dev environment
-.wp-env.json
-
 # Test cache
 .phpunit.result.cache
 
 # PHP dependencies (reproducible via composer install)
 /vendor/
-composer.lock
 
 # Node dependencies
 /node_modules
@@ -23,18 +19,16 @@ composer.lock
 !.yarn/plugins
 !.yarn/releases
 !.yarn/versions
-pnpm-lock.yaml
-package.json
 
-# PHPUnit config (local dev only — WP.org reviewers don't need it)
-phpunit.xml.dist
-
-# Build scripts (local dev only)
-/scripts/
+# Generated build output
 /.build/
+/aldersverificering-woocommerce.zip
+/aldersverificering-woocommerce.zip.sha256
 
 # Test results
 /coverage
+/test-results/
+/playwright-report/
 
 # misc
 .DS_Store
