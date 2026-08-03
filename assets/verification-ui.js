@@ -7,7 +7,7 @@
   var BODY_ID = "unq-age-modal-body";
   var POPUP_NOTICE_ID = "unq-age-modal-popup-notice";
   var FOCUSABLE_SELECTOR =
-    'a[href], button:not([disabled]), input:not([disabled]), select:not([disabled]), ' +
+    "a[href], button:not([disabled]), input:not([disabled]), select:not([disabled]), " +
     'textarea:not([disabled]), [tabindex]:not([tabindex="-1"])';
 
   function createElement(tagName, className, text) {
@@ -43,7 +43,7 @@
       var label = createElement(
         "span",
         "unq-agev-mitid-button__label",
-        i18n.modalVerifyBtn
+        i18n.modalVerifyBtn,
       );
 
       verifyButton.appendChild(logo);
@@ -74,7 +74,7 @@
     function getFocusableElements() {
       if (!overlay) return [];
       return Array.prototype.slice.call(
-        overlay.querySelectorAll(FOCUSABLE_SELECTOR)
+        overlay.querySelectorAll(FOCUSABLE_SELECTOR),
       );
     }
 
@@ -123,13 +123,10 @@
 
       statusMessage.className =
         "unq-agev-modal__status unq-agev-modal__status--" + type;
-      statusMessage.setAttribute(
-        "role",
-        type === "error" ? "alert" : "status"
-      );
+      statusMessage.setAttribute("role", type === "error" ? "alert" : "status");
       statusMessage.setAttribute(
         "aria-live",
-        type === "error" ? "assertive" : "polite"
+        type === "error" ? "assertive" : "polite",
       );
       statusMessage.textContent = message;
       statusMessage.hidden = false;
@@ -187,12 +184,12 @@
         var testBanner = createElement(
           "div",
           "unq-agev-modal__test-banner",
-          i18n.testModeLabel
+          i18n.testModeLabel,
         );
         var testDescription = createElement(
           "span",
           "unq-agev-sr-only",
-          ". " + i18n.testModeDescription
+          ". " + i18n.testModeDescription,
         );
         testBanner.appendChild(testDescription);
         testBanner.title = i18n.testModeDescription;
@@ -216,7 +213,7 @@
         var popupNotice = createElement(
           "p",
           "unq-agev-modal__popup-notice",
-          i18n.popupNotice
+          i18n.popupNotice,
         );
         popupNotice.id = POPUP_NOTICE_ID;
         dialog.appendChild(popupNotice);
@@ -234,7 +231,7 @@
       verifyButton = createElement(
         "button",
         "unq-agev-modal__primary",
-        i18n.modalVerifyBtn
+        i18n.modalVerifyBtn,
       );
       verifyButton.type = "button";
       buildMitIdButtonContent();
@@ -255,7 +252,7 @@
       var cancelButton = createElement(
         "button",
         "unq-agev-modal__cancel",
-        i18n.modalCancelBtn
+        i18n.modalCancelBtn,
       );
       cancelButton.type = "button";
       cancelButton.addEventListener("click", function () {

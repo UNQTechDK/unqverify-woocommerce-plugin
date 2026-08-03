@@ -48,14 +48,14 @@
         } else {
           reject(
             new Error(
-              "UnqVerify SDK loaded but window.UnqVerify is undefined."
-            )
+              "UnqVerify SDK loaded but window.UnqVerify is undefined.",
+            ),
           );
         }
       };
       script.onerror = function () {
         reject(
-          new Error("Failed to load UNQVerify SDK from: " + UNQCheckout.sdkUrl)
+          new Error("Failed to load UNQVerify SDK from: " + UNQCheckout.sdkUrl),
         );
       };
       document.head.appendChild(script);
@@ -193,7 +193,7 @@
       preOpenedPopup = window.open(
         "about:blank",
         "unqverify-popup",
-        "width=520,height=700,resizable=yes,scrollbars=yes"
+        "width=520,height=700,resizable=yes,scrollbars=yes",
       );
       if (!preOpenedPopup || preOpenedPopup.closed) {
         setModalStatus(UNQCheckout.i18n.popupBlocked, "error");
@@ -258,7 +258,7 @@
                 outcome && outcome.code === "POPUP_BLOCKED"
                   ? UNQCheckout.i18n.popupBlocked
                   : UNQCheckout.i18n.error,
-                "error"
+                "error",
               );
             },
           });
