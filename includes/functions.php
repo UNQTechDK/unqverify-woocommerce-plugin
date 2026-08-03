@@ -389,7 +389,11 @@ function unq_agev_strings( $locale, $age = 18 ) {
             'modalTitle'     => 'Age verification required',
             /* translators: %d: minimum required age */
             'modalBody'      => sprintf( 'This store sells age-restricted products. You must confirm that you are %d years or older to proceed to checkout. This is done securely via MitID and only takes a moment.', $age ),
-            'modalVerifyBtn' => 'Verify age with MitID',
+            'popupNotice'    => 'MitID verification opens in a new window.',
+            'verificationStarting' => 'Opening age verification…',
+            'testModeLabel'  => 'Test mode',
+            'testModeDescription' => 'Test mode is active. No real MitID verification is performed.',
+            'modalVerifyBtn' => 'Confirm with MitID',
             'modalCancelBtn' => 'Cancel',
         ),
         'da' => array(
@@ -405,7 +409,11 @@ function unq_agev_strings( $locale, $age = 18 ) {
             'modalTitle'     => 'Aldersverificering påkrævet',
             /* translators: %d: minimum required age */
             'modalBody'      => sprintf( 'Denne butik sælger aldersbegrænsede varer. Du skal bekræfte, at du er %d år eller ældre, for at gå til kassen. Det sker sikkert via MitID og tager kun et øjeblik.', $age ),
-            'modalVerifyBtn' => 'Bekræft alder med MitID',
+            'popupNotice'    => 'MitID-verificeringen åbner i et nyt vindue.',
+            'verificationStarting' => 'Åbner aldersverificering…',
+            'testModeLabel'  => 'Testtilstand',
+            'testModeDescription' => 'Testtilstand er aktiv. Der gennemføres ikke en rigtig MitID-verificering.',
+            'modalVerifyBtn' => 'Bekræft med MitID',
             'modalCancelBtn' => 'Annuller',
         ),
     );

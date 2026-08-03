@@ -1,7 +1,7 @@
 # Manual Test Suite — Aldersverificering for WooCommerce
 
-**Plugin version:** 1.1.0
-**Last updated:** 2026-03-18
+**Plugin version:** 1.1.2
+**Last updated:** 2026-08-03
 
 This document is a complete step-by-step guide for manually testing every feature of the age verification plugin. It is written for someone with no prior WordPress or WooCommerce experience. Follow the sections in order — each section builds on the setup and state from the one before it.
 
@@ -42,7 +42,8 @@ This document is a complete step-by-step guide for manually testing every featur
    - [15B. Order-Pay Page (Return to Pay)](#15b-order-pay-page-return-to-pay)
    - [15C. Thank-You Page](#15c-thank-you-page)
    - [15D. Empty Cart Direct Checkout URL](#15d-empty-cart-direct-checkout-url)
-16. [Quick Reference — Pass/Fail Checklist](#16-quick-reference--passfail-checklist)
+16. [Storefront UX and Accessibility](#16-storefront-ux-and-accessibility)
+17. [Quick Reference — Pass/Fail Checklist](#17-quick-reference--passfail-checklist)
 
 ---
 
@@ -242,8 +243,8 @@ This test confirms that a customer who navigates directly to `/checkout/` withou
 1. On the cart page (from step 5A), you should see the age verification widget/button.
 2. **Expected result:** A button or banner is visible asking you to verify your age — something like *"Verify age to continue"*.
 3. Click the verify button.
-4. **Expected result:** A modal/popup appears explaining that age verification is required, with a **"Verify age with MitID"** button and a **Cancel** button.
-5. Click **Verify age with MitID**.
+4. **Expected result:** A modal appears explaining that age verification is required, with an official blue **"Confirm with MitID"** button and a **Cancel** button. It also says **"MitID verification opens in a new window."** before verification starts.
+5. Confirm that the CTA contains the supplied white MitID logo, white IBM Plex Sans SemiBold text, the fixed `#0060E6` background, and 4 px corner radius. Confirm that the logo is not stretched or recoloured. Click **Confirm with MitID**.
 6. **Expected result:** A new popup window opens (or the page redirects, depending on mode). In test mode you will see a simulated MitID flow — follow through the test verification. No real personal data is needed.
 7. Complete the test verification in the MitID popup.
 8. **Expected result:** The popup closes. The cart page now shows a green **"Age verified"** confirmation. The verify button is gone or disabled.
@@ -520,7 +521,7 @@ The plugin supports two modes: **Popup** (default) and **Full-page redirect**. I
 
 ## 14. Locale / Language
 
-### 13.1 Force Danish
+### 14.1 Force Danish
 
 1. Go to **WooCommerce → Settings → UNQVerify → General Settings**.
 2. Set **Popup Language** to **Dansk**.
@@ -530,8 +531,10 @@ The plugin supports two modes: **Popup** (default) and **Full-page redirect**. I
    - Cart notice: *"Du skal gennemføre aldersverificering, inden du kan gå til kassen."*
    - Verify button: *"Bekræft alder for at fortsætte"*
    - Modal title: *"Aldersverificering påkrævet"*
+   - Modal action: *"Bekræft med MitID"*
+   - Popup notice: *"MitID-verificeringen åbner i et nyt vindue."*
 
-### 13.2 Force English
+### 14.2 Force English
 
 1. Set **Popup Language** to **English** and save.
 2. Repeat the cart/checkout flow.
@@ -539,8 +542,10 @@ The plugin supports two modes: **Popup** (default) and **Full-page redirect**. I
    - Cart notice: *"You must complete age verification before proceeding to checkout."*
    - Verify button: *"Verify age to continue"*
    - Modal title: *"Age verification required"*
+   - Modal action: *"Confirm with MitID"*
+   - Popup notice: *"MitID verification opens in a new window."*
 
-### 13.3 Auto-Detect
+### 14.3 Auto-Detect
 
 1. Set **Popup Language** to **Auto-detect**. Save.
 2. Go to **Settings → General** in WordPress admin. If the site language is set to **Danish**, the plugin should show Danish strings. If English (or other), it should show English strings.
@@ -590,7 +595,42 @@ The `/checkout/order-pay/` endpoint is used when a customer returns to complete 
 
 ---
 
-## 16. Quick Reference — Pass/Fail Checklist
+## 16. Storefront UX and Accessibility
+
+Run these checks in both English and Danish. Use popup mode unless the step says
+otherwise.
+
+1. Open the age-verification modal using only the keyboard.
+2. **Expected result:** Focus moves to **Confirm with MitID** / **Bekræft med MitID**.
+3. Press `Tab` and `Shift+Tab` repeatedly.
+4. **Expected result:** Focus cycles only between controls inside the modal and
+   never moves to the page behind it.
+5. Press `Escape`.
+6. **Expected result:** The modal closes and focus returns to the control that
+   opened it.
+7. Reopen the modal and confirm the popup/new-window notice is visible before
+   activation. Switch to redirect mode and confirm that this notice is absent.
+8. Complete denied, cancelled, blocked-popup, and technical-error outcomes.
+9. **Expected result:** Each outcome is communicated with visible text, is
+   announced by the screen reader, and returns focus to the retry button.
+10. Complete a successful checkout verification.
+11. **Expected result:** The verified status is announced and receives logical
+    focus; no verification button remains.
+12. Test once with VoiceOver + Safari and once with NVDA + Chrome or Firefox.
+13. Test at 200% browser zoom and at a mobile viewport no wider than 320 CSS px.
+14. **Expected result:** Text remains readable, controls remain reachable, and
+    there is no horizontal page scrolling.
+15. Inspect the official CTA and plugin `assets/` directory.
+16. **Expected result:** All references are spelled `MitID`. The CTA uses the
+    supplied white logo, fixed MitID blue `#0060E6`, IBM Plex Sans SemiBold,
+    permitted text, and 4 px radius. No unofficial or redrawn MitID asset is
+    present.
+
+> **Pass criterion:** The modal meets the documented keyboard, focus, screen-reader, responsive, and official MitID CTA contract in both languages and modes.
+
+---
+
+## 17. Quick Reference — Pass/Fail Checklist
 
 Use this table as a final sign-off checklist. Mark each test ✅ Pass or ❌ Fail.
 
@@ -630,11 +670,16 @@ Use this table as a final sign-off checklist. Mark each test ✅ Pass or ❌ Fai
 | 10 | Disabling plugin removes all age gate behaviour | | |
 | 11 | Admin notice appears when enabled but no key set | | |
 | 11 | Admin notice disappears when key is saved | | |
-| 13.1 | Danish strings shown when locale forced to Danish | | |
-| 13.2 | English strings shown when locale forced to English | | |
+| 14.1 | Danish strings shown when locale forced to Danish | | |
+| 14.2 | English strings shown when locale forced to English | | |
 | 14A | Tampered JWT cookie rejected — gate re-triggered | | |
 | 14B | Order-pay page loads without age gate interference | | |
 | 14C | Order-received page loads without age gate interference | | |
+| 16 | Popup notice is visible before a new window opens and absent in redirect mode | | |
+| 16 | Keyboard focus is trapped and restored correctly | | |
+| 16 | VoiceOver and NVDA announce dialog, status, and error text correctly | | |
+| 16 | 200% zoom and 320 CSS px viewport remain usable | | |
+| 16 | Official CTA uses the supplied logo, MitID blue, IBM Plex Sans SemiBold, permitted text, and 4 px radius | | |
 
 ---
 

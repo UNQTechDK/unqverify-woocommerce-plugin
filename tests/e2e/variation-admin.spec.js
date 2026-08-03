@@ -2,9 +2,20 @@ const { test, expect } = require("@playwright/test");
 
 async function logIn(page) {
   await page.goto("/wp-login.php");
-  await page.getByLabel("Username or Email Address").fill("admin");
-  await page.locator('input[name="pwd"]').fill("admin");
-  await page.locator("#wp-submit").click();
+  const loginUrl = new URL("/wp-login.php", page.url()).toString();
+  const adminUrl = new URL("/wp-admin/", page.url()).toString();
+  const response = await page.context().request.post(loginUrl, {
+    form: {
+      log: "admin",
+      pwd: "admin",
+      "wp-submit": "Log In",
+      redirect_to: adminUrl,
+      testcookie: "1",
+    },
+  });
+
+  expect(response.ok()).toBe(true);
+  await page.goto(adminUrl);
   await expect(page).toHaveURL(/\/wp-admin\//);
 }
 

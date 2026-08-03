@@ -9,7 +9,7 @@ on:
       tag:
         description: "Version tag (e.g. v1.0.0) — used as the release name"
         required: true
-        default: "v1.1.0"
+        default: "v1.1.2"
 
 permissions:
   contents: write

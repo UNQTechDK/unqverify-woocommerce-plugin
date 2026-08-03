@@ -206,15 +206,40 @@ class UNQ_Frontend {
                 'publicKey'    => unq_agev_active_key(),
                 'ageToVerify'  => unq_agev_cart_required_age(),
                 'redirectUri'  => home_url( '/unqverify/callback/' ),
+                'mitIdLogoUrl' => UNQ_AGEV_URL . 'assets/mitid-logo-white.png',
                 'mode'         => unq_agev_get( 'mode' ),
                 'testMode'     => 'yes' !== unq_agev_get( 'use_production' ),
             );
 
-            if ( is_cart() && unq_agev_cart_is_gated() ) {
+            $is_gated_cart     = is_cart() && unq_agev_cart_is_gated();
+            $is_gated_checkout = is_checkout()
+                && unq_agev_cart_is_gated()
+                && ! is_wc_endpoint_url( 'order-received' )
+                && ! is_wc_endpoint_url( 'order-pay' );
+
+            if ( ! $is_gated_cart && ! $is_gated_checkout ) {
+                return;
+            }
+
+            wp_enqueue_style(
+                'unq-agev-frontend',
+                UNQ_AGEV_URL . 'assets/frontend.css',
+                array(),
+                UNQ_AGEV_VERSION
+            );
+            wp_enqueue_script(
+                'unq-agev-ui',
+                UNQ_AGEV_URL . 'assets/verification-ui.js',
+                array(),
+                UNQ_AGEV_VERSION,
+                true
+            );
+
+            if ( $is_gated_cart ) {
                 wp_enqueue_script(
                     'unq-age-cart',
                     UNQ_AGEV_URL . 'assets/cart.js',
-                    array( 'jquery' ),
+                    array( 'jquery', 'unq-agev-ui' ),
                     UNQ_AGEV_VERSION,
                     true
                 );
@@ -229,11 +254,11 @@ class UNQ_Frontend {
                 );
             }
 
-            if ( is_checkout() && unq_agev_cart_is_gated() && ! is_wc_endpoint_url( 'order-received' ) && ! is_wc_endpoint_url( 'order-pay' ) ) {
+            if ( $is_gated_checkout ) {
                 wp_enqueue_script(
                     'unq-age-checkout',
                     UNQ_AGEV_URL . 'assets/checkout.js',
-                    array( 'jquery' ),
+                    array( 'jquery', 'unq-agev-ui' ),
                     UNQ_AGEV_VERSION,
                     true
                 );

@@ -4,7 +4,7 @@ Tags: woocommerce, age-verification, mitid, denmark, aldersverificering
 Requires at least: 6.0
 Tested up to: 6.7
 Requires PHP: 7.4
-Stable tag: 1.1.0
+Stable tag: 1.1.2
 License: GPL-2.0-or-later
 License URI: https://www.gnu.org/licenses/gpl-2.0.html
 
@@ -29,6 +29,7 @@ When a customer proceeds to checkout with age-restricted products in their cart,
 * Four-tier age resolution: store default → gated category override → parent product override → variation override
 * Test and production environments with separate API keys
 * Popup and redirect verification flows
+* Accessible age-verification interface with the documented official MitID CTA
 * Danish and English storefront strings; admin UI fully translatable
 * WPML and Polylang compatible
 * Safe for WordPress Multisite (single-site activation only)
@@ -79,11 +80,26 @@ of that product.
 
 The plugin reads a short-lived JWT cookie set by the MitID flow during checkout validation and immediately discards it. No personal data is persisted to the database.
 
+= Does the plugin use the official MitID button or logo? =
+
+Yes. The button that starts the MitID client uses the supplied official white MitID logo, MitID blue, IBM Plex Sans SemiBold, a permitted Danish/English CTA text, and the preferred 4 px radius. Neutral WooCommerce controls that only open the explanatory dialog are not presented as MitID buttons. The MitID client itself is rendered by the configured broker after the verification flow starts.
+
 = What cleanup happens when I delete the plugin? =
 
 All plugin options, category gating meta, product gating meta, and JWKS cache are removed automatically via the included `uninstall.php`.
 
 == Changelog ==
+
+= 1.1.2 =
+* Implemented the official MitID CTA for starting verification with the supplied white logo, fixed MitID blue, IBM Plex Sans SemiBold, and preferred 4 px radius.
+* Changed the CTA text to the documented `Confirm with MitID` / `Bekræft med MitID` options.
+* Kept the popup new-window notice, accessibility behaviour, and existing SDK/security flow unchanged.
+
+= 1.1.1 =
+* Replaced the potentially ambiguous MitID-labelled storefront CTA with a merchant-neutral age-verification button.
+* Added a Danish/English new-window notice before popup verification.
+* Added a shared accessible modal with focus trapping, focus restoration, live status messages, responsive styling, and documented theme variables.
+* Added automated accessibility and classic/Blocks storefront UI tests.
 
 = 1.1.0 =
 * Added per-variation age-gate rules for variable WooCommerce products.

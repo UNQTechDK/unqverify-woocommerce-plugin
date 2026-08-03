@@ -1,4 +1,4 @@
-/* global UNQCheckout, jQuery */
+/* global UNQCheckout, UNQAgeVerificationUI, jQuery */
 (function ($) {
   "use strict";
 
@@ -10,7 +10,6 @@
   }
 
   var BANNER_ID = "unq-age-checkout-banner";
-  var MODAL_ID = "unq-age-modal";
 
   // Cached promise — ensures the SDK <script> is injected only once.
   var _sdkPromise = null;
@@ -21,6 +20,9 @@
   // Guard flag — prevents double-firing when BroadcastChannel and SDK
   // callbacks both deliver the same result.
   var _verificationDone = false;
+
+  // Shared accessible modal controller from verification-ui.js.
+  var _modal = null;
 
   // -------------------------------------------------------------------------
   // SDK loader — cached so the <script> tag is injected only once.
@@ -81,200 +83,92 @@
 
     var banner = document.createElement("div");
     banner.id = BANNER_ID;
-    banner.style.cssText =
-      "padding:12px 16px;margin-bottom:16px;border-radius:4px;" +
-      "font-size:14px;display:flex;align-items:center;gap:10px;";
+    banner.className = "unq-agev-banner";
+    banner.setAttribute("aria-atomic", "true");
     form.insertBefore(banner, form.firstChild);
     return banner;
   }
 
   function showVerifiedBanner(form) {
     var banner = getOrCreateBanner(form);
-    banner.style.background = "#f0fdf4";
-    banner.style.border = "1px solid #86efac";
-    banner.style.color = "#166534";
-    banner.innerHTML =
-      "<span>✓</span><span>" + escHtml(UNQCheckout.i18n.verified) + "</span>";
+    banner.className = "unq-agev-banner unq-agev-banner--verified";
+    banner.setAttribute("role", "status");
+    banner.setAttribute("aria-live", "polite");
+    banner.tabIndex = -1;
+    banner.textContent = "";
+
+    var icon = document.createElement("span");
+    icon.setAttribute("aria-hidden", "true");
+    icon.textContent = "✓";
+
+    var message = document.createElement("span");
+    message.className = "unq-agev-banner__message";
+    message.textContent = UNQCheckout.i18n.verified;
+
+    banner.appendChild(icon);
+    banner.appendChild(message);
+    return banner;
   }
 
   function showMessageBanner(form, message, type) {
     var banner = getOrCreateBanner(form);
     var isError = type === "error";
-    banner.style.background = isError ? "#fef2f2" : "#fffbeb";
-    banner.style.border = isError ? "1px solid #fca5a5" : "1px solid #fcd34d";
-    banner.style.color = isError ? "#991b1b" : "#92400e";
+    banner.className =
+      "unq-agev-banner unq-agev-banner--" + (isError ? "error" : "warning");
+    banner.setAttribute("role", isError ? "alert" : "status");
+    banner.setAttribute("aria-live", isError ? "assertive" : "polite");
+    banner.removeAttribute("tabindex");
 
     var button = document.createElement("button");
     button.type = "button";
     button.textContent = UNQCheckout.i18n.verifyPrompt;
-    button.style.cssText =
-      "margin-left:auto;padding:6px 12px;border:none;border-radius:4px;" +
-      "background:#1d4ed8;color:#fff;cursor:pointer;font-size:13px;";
+    button.className = "unq-agev-banner__button";
+    button.setAttribute("aria-haspopup", "dialog");
+    button.setAttribute("aria-controls", "unq-age-modal");
     button.addEventListener("click", showModal);
 
-    banner.innerHTML = "<span>" + escHtml(message) + "</span>";
+    banner.textContent = "";
+    var messageElement = document.createElement("span");
+    messageElement.className = "unq-agev-banner__message";
+    messageElement.textContent = message;
+    banner.appendChild(messageElement);
     banner.appendChild(button);
   }
 
-  function removeVerifyButton() {
-    var banner = document.getElementById(BANNER_ID);
-    if (banner) banner.remove();
-  }
-
-  function escHtml(str) {
-    return String(str)
-      .replace(/&/g, "&amp;")
-      .replace(/</g, "&lt;")
-      .replace(/>/g, "&gt;")
-      .replace(/"/g, "&quot;");
-  }
-
-  // -------------------------------------------------------------------------
-  // Age gate modal — shown when the user clicks "Verify" in the checkout
-  // banner. The "Verify with MitID" button is the trusted user gesture that
-  // pre-opens the popup inside triggerVerification().
-  // -------------------------------------------------------------------------
-  function buildModal() {
-    var overlay = document.createElement("div");
-    overlay.id = MODAL_ID;
-    overlay.style.cssText =
-      "position:fixed;inset:0;z-index:999999;display:flex;align-items:center;" +
-      "justify-content:center;background:rgba(0,0,0,0.55);padding:16px;";
-
-    var card = document.createElement("div");
-    card.style.cssText =
-      "background:#fff;border-radius:12px;max-width:420px;width:100%;" +
-      "padding:32px 28px;box-shadow:0 20px 60px rgba(0,0,0,0.3);text-align:center;" +
-      "font-family:inherit;";
-
-    var icon = document.createElement("div");
-    icon.style.cssText = "font-size:40px;margin-bottom:16px;line-height:1;";
-    icon.textContent = "🔒";
-
-    var title = document.createElement("h2");
-    title.style.cssText =
-      "margin:0 0 12px;font-size:20px;font-weight:700;color:#111;line-height:1.3;";
-    title.textContent = UNQCheckout.i18n.modalTitle;
-
-    var body = document.createElement("p");
-    body.style.cssText =
-      "margin:0 0 24px;font-size:14px;color:#555;line-height:1.65;";
-    body.textContent = UNQCheckout.i18n.modalBody;
-
-    var verifyBtn = document.createElement("button");
-    verifyBtn.type = "button";
-    verifyBtn.style.cssText =
-      "display:block;width:100%;padding:13px 16px;margin-bottom:10px;" +
-      "background:#1d4ed8;color:#fff;border:none;border-radius:8px;" +
-      "font-size:15px;font-weight:600;cursor:pointer;letter-spacing:0.01em;";
-    verifyBtn.textContent = UNQCheckout.i18n.modalVerifyBtn;
-
-    var cancelBtn = document.createElement("button");
-    cancelBtn.type = "button";
-    cancelBtn.style.cssText =
-      "background:none;border:none;color:#6b7280;font-size:14px;" +
-      "cursor:pointer;padding:6px;text-decoration:underline;";
-    cancelBtn.textContent = UNQCheckout.i18n.modalCancelBtn;
-
-    // Status message area — hidden initially, shown on denied/error/cancel.
-    var statusMsg = document.createElement("p");
-    statusMsg.style.cssText =
-      "display:none;margin:0 0 16px;font-size:13px;padding:10px 14px;" +
-      "border-radius:6px;text-align:left;line-height:1.5;";
-
-    // Test-mode banner — full-width strip at the top of the card.
-    if (UNQCheckout.testMode) {
-      var testBanner = document.createElement("div");
-      testBanner.textContent = "\uD83E\uDDEA TEST MODE";
-      testBanner.style.cssText =
-        "background:#fef9c3;color:#854d0e;border-bottom:1px solid #fde047;" +
-        "font-size:11px;font-weight:700;letter-spacing:0.06em;text-align:center;" +
-        "padding:7px 28px;border-radius:12px 12px 0 0;" +
-        "margin:-32px -28px 24px -28px;cursor:default;";
-      testBanner.title =
-        "Test mode is active. Switch to Production in WooCommerce \u2192 Settings \u2192 UNQVerify to go live.";
-      card.appendChild(testBanner);
+  function getModal() {
+    if (_modal) return _modal;
+    if (!window.UNQAgeVerificationUI) {
+      console.error("[UNQVerify] Verification UI failed to load.");
+      return null;
     }
 
-    card.appendChild(icon);
-    card.appendChild(title);
-    card.appendChild(body);
-    card.appendChild(statusMsg);
-    card.appendChild(verifyBtn);
-    card.appendChild(cancelBtn);
-    overlay.appendChild(card);
-
-    return {
-      overlay: overlay,
-      verifyBtn: verifyBtn,
-      cancelBtn: cancelBtn,
-      statusMsg: statusMsg,
-      icon: icon,
-    };
+    _modal = window.UNQAgeVerificationUI.createModal({
+      i18n: UNQCheckout.i18n,
+      logoUrl: UNQCheckout.mitIdLogoUrl,
+      mode: UNQCheckout.mode,
+      testMode: UNQCheckout.testMode,
+      onVerify: triggerVerification,
+    });
+    return _modal;
   }
 
-  // Keep a reference to the active modal parts so outcome handlers can update it.
-  var _modalParts = null;
+  function showModal(event) {
+    var modal = getModal();
+    if (modal) modal.show(event && event.currentTarget);
+  }
 
-  // Show a status message inside the currently-open modal.
+  function closeModal(options) {
+    if (_modal) _modal.close(options);
+  }
+
   function setModalStatus(message, type) {
-    if (!_modalParts) return;
-    var s = _modalParts.statusMsg;
-    if (type === "error") {
-      s.style.background = "#fef2f2";
-      s.style.color = "#991b1b";
-      s.style.border = "1px solid #fca5a5";
-    } else {
-      s.style.background = "#fffbeb";
-      s.style.color = "#92400e";
-      s.style.border = "1px solid #fcd34d";
-    }
-    s.textContent = message;
-    s.style.display = "block";
-    _modalParts.verifyBtn.textContent = UNQCheckout.i18n.modalVerifyBtn;
-    _modalParts.verifyBtn.disabled = false;
-    _modalParts.verifyBtn.style.opacity = "1";
-    _modalParts.icon.textContent = type === "error" ? "⚠️" : "🔄";
-    _modalParts.verifyBtn.focus();
+    if (_modal) _modal.setStatus(message, type);
   }
 
-  function showModal() {
-    closeModal();
-    _modalParts = buildModal();
-    var parts = _modalParts;
-
-    // "Verify with MitID" click — the trusted gesture; triggerVerification()
-    // calls window.open() synchronously at its start, so popup blockers pass.
-    parts.verifyBtn.addEventListener("click", function () {
-      parts.statusMsg.style.display = "none";
-      parts.icon.textContent = "🔒";
-      parts.verifyBtn.disabled = true;
-      parts.verifyBtn.style.opacity = "0.6";
-      triggerVerification();
-    });
-
-    parts.cancelBtn.addEventListener("click", closeModal);
-
-    parts.overlay.addEventListener("click", function (e) {
-      if (e.target === parts.overlay) closeModal();
-    });
-
-    function onKeydown(e) {
-      if (e.key === "Escape") {
-        closeModal();
-        document.removeEventListener("keydown", onKeydown);
-      }
-    }
-    document.addEventListener("keydown", onKeydown);
-
-    document.body.appendChild(parts.overlay);
-    parts.verifyBtn.focus();
-  }
-
-  function closeModal() {
-    _modalParts = null;
-    var el = document.getElementById(MODAL_ID);
-    if (el) el.remove();
+  function completeVerification(form) {
+    closeModal({ restoreFocus: false });
+    var banner = showVerifiedBanner(form);
+    banner.focus();
   }
 
   // -------------------------------------------------------------------------
@@ -286,7 +180,10 @@
   // -------------------------------------------------------------------------
   function triggerVerification() {
     var form = getCheckoutForm();
-    if (!form) return;
+    if (!form) {
+      setModalStatus(UNQCheckout.i18n.error, "error");
+      return;
+    }
 
     _verificationDone = false;
 
@@ -299,7 +196,7 @@
         "width=520,height=700,resizable=yes,scrollbars=yes",
       );
       if (!preOpenedPopup || preOpenedPopup.closed) {
-        showMessageBanner(form, UNQCheckout.i18n.popupBlocked, "warning");
+        setModalStatus(UNQCheckout.i18n.popupBlocked, "error");
         return;
       }
     }
@@ -315,8 +212,7 @@
         if (type === "UNQVERIFY_VERIFIED") {
           if (_verificationDone) return;
           _verificationDone = true;
-          closeModal();
-          showVerifiedBanner(f);
+          completeVerification(f);
         } else if (type === "UNQVERIFY_DENIED") {
           if (_verificationDone) return;
           _verificationDone = true;
@@ -324,7 +220,7 @@
         } else {
           if (_verificationDone) return;
           _verificationDone = true;
-          setModalStatus(UNQCheckout.i18n.error, "warning");
+          setModalStatus(UNQCheckout.i18n.error, "error");
         }
       };
     }
@@ -340,8 +236,7 @@
             onVerified: function () {
               if (_verificationDone) return;
               _verificationDone = true;
-              closeModal();
-              showVerifiedBanner(getCheckoutForm() || form);
+              completeVerification(getCheckoutForm() || form);
             },
 
             onDenied: function () {
@@ -363,7 +258,7 @@
                 outcome && outcome.code === "POPUP_BLOCKED"
                   ? UNQCheckout.i18n.popupBlocked
                   : UNQCheckout.i18n.error,
-                "warning",
+                "error",
               );
             },
           });
@@ -379,8 +274,7 @@
       ["catch"](function (err) {
         if (bc) bc.close();
         console.error("[UNQVerify]", err);
-        var f = getCheckoutForm();
-        if (f) showMessageBanner(f, UNQCheckout.i18n.error, "warning");
+        setModalStatus(UNQCheckout.i18n.error, "error");
       });
   }
 
