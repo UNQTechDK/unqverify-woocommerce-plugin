@@ -125,7 +125,9 @@ class SettingsTest extends TestCase {
 
         $this->assertSame( 'Verify age to continue', $s['verifyPrompt'] );
         $this->assertSame( 'Age verified', $s['verified'] );
-        $this->assertSame( 'Verify age with MitID', $s['modalVerifyBtn'] );
+        $this->assertSame( 'Confirm with MitID', $s['modalVerifyBtn'] );
+        $this->assertSame( 'MitID verification opens in a new window.', $s['popupNotice'] );
+        $this->assertSame( 'Test mode', $s['testModeLabel'] );
     }
 
     // ------------------------------------------------------------------
@@ -137,7 +139,9 @@ class SettingsTest extends TestCase {
 
         $this->assertSame( 'Bekræft alder for at fortsætte', $s['verifyPrompt'] );
         $this->assertSame( 'Alder bekræftet', $s['verified'] );
-        $this->assertSame( 'Bekræft alder med MitID', $s['modalVerifyBtn'] );
+        $this->assertSame( 'Bekræft med MitID', $s['modalVerifyBtn'] );
+        $this->assertSame( 'MitID-verificeringen åbner i et nyt vindue.', $s['popupNotice'] );
+        $this->assertSame( 'Testtilstand', $s['testModeLabel'] );
     }
 
     // ------------------------------------------------------------------
@@ -499,14 +503,16 @@ class SettingsTest extends TestCase {
     // ------------------------------------------------------------------
     // 50. unq_agev_strings() returns all keys required by checkout.js
     //     (verifyPrompt, verified, denied, cancelled, popupBlocked, error,
-    //      modalTitle, modalBody, modalVerifyBtn, modalCancelBtn).
+    //      modalTitle, modalBody, popupNotice, verificationStarting,
+    //      testModeLabel, testModeDescription, modalVerifyBtn, modalCancelBtn).
     // ------------------------------------------------------------------
 
     public function test_strings_contains_all_checkout_js_keys(): void {
         $required_keys = array(
             'verifyPrompt', 'verified', 'denied', 'cancelled',
             'popupBlocked', 'error', 'modalTitle', 'modalBody',
-            'modalVerifyBtn', 'modalCancelBtn',
+            'popupNotice', 'verificationStarting', 'testModeLabel',
+            'testModeDescription', 'modalVerifyBtn', 'modalCancelBtn',
         );
 
         foreach ( array( 'en', 'da' ) as $locale ) {
@@ -556,6 +562,18 @@ class SettingsTest extends TestCase {
                 "modalBody in '$locale' should contain the age '15'"
             );
         }
+    }
+
+    public function test_official_mitid_call_to_action_uses_permitted_wording(): void {
+        foreach ( array( 'en', 'da' ) as $locale ) {
+            $strings = unq_agev_strings( $locale );
+            $this->assertStringContainsString( 'MitID', $strings['modalVerifyBtn'] );
+            $this->assertStringContainsString( 'MitID', $strings['modalBody'] );
+            $this->assertStringContainsString( 'MitID', $strings['popupNotice'] );
+        }
+
+        $this->assertSame( 'Confirm with MitID', unq_agev_strings( 'en' )['modalVerifyBtn'] );
+        $this->assertSame( 'Bekræft med MitID', unq_agev_strings( 'da' )['modalVerifyBtn'] );
     }
 
     // ------------------------------------------------------------------

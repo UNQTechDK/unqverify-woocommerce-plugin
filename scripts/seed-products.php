@@ -178,6 +178,17 @@ $restricted_id = unq_agev_seed_simple_product( 'UNQ Test Age-Restricted Item', '
 $premium_id = unq_agev_seed_simple_product( 'UNQ Test Premium Item', 'UNQ-AGEV-PREMIUM', '800', $restricted_goods_id );
 $configurable_item_id = unq_agev_seed_configurable_item( $general_goods_id );
 
+// Deterministic plugin settings for browser tests. This script is only used
+// with the disposable wp-env development site.
+update_option( 'unq_agev_enabled', 'yes' );
+update_option( 'unq_agev_test_public_key', 'pk_test_browser_fixture' );
+update_option( 'unq_agev_use_production', 'no' );
+update_option( 'unq_agev_required_age', 18 );
+update_option( 'unq_agev_verification_mode', 'popup' );
+update_option( 'unq_agev_locale', 'en' );
+update_option( 'unq_agev_targeting', 'all' );
+update_option( 'woocommerce_coming_soon', 'no' );
+
 WP_CLI::success(
     sprintf(
         'Seeded products: Ordinary Widget #%d, Age-Restricted Item #%d, Premium Item #%d, Configurable Item #%d.',

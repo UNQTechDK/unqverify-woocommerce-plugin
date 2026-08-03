@@ -32,6 +32,44 @@ MitID-based age verification for WooCommerce checkout using the [UNQVerify SDK](
 
 ---
 
+## Storefront UX and MitID presentation
+
+The control that starts the MitID client uses the official MitID CTA treatment:
+`Confirm with MitID` in English and `Bekræft med MitID` in Danish. It uses the
+supplied white MitID logo, fixed MitID blue (`#0060E6`), IBM Plex Sans SemiBold,
+and the preferred 4 px corner radius. Popup mode warns the customer before a
+new window opens.
+
+WooCommerce controls that only open the explanatory dialog remain neutral.
+They are not presented as MitID buttons because they do not start the MitID
+client.
+
+The modal follows the WAI-ARIA dialog pattern: focus moves into the dialog,
+Tab/Shift+Tab stay inside it, Escape and Cancel close it, and focus returns to
+the invoking control. Status and error messages are exposed to assistive
+technology.
+
+Storefront colours can be adapted without changing the component markup:
+
+```css
+.unq-agev-overlay,
+.unq-agev-banner {
+  --unq-agev-surface: #ffffff;
+  --unq-agev-text: #172033;
+  --unq-agev-muted: #4b5563;
+  --unq-agev-action: #243044;
+  --unq-agev-action-hover: #111827;
+  --unq-agev-focus: #0b57d0;
+}
+```
+
+The theme variables do not control the official MitID CTA. Do not override its
+logo, colour, typography, wording, spacing, or radius. See
+[`docs/mitid-ux-compliance.md`](docs/mitid-ux-compliance.md) for the sources,
+responsibility boundary, and release checklist.
+
+---
+
 ## Variable Products
 
 In **Selected products & categories** mode, open a variable product in **Product data -> Variations** and expand a variation. The age-verification section at the bottom includes a direct checkbox and an optional age override. It is available whether or not variation-level stock management is enabled.
@@ -47,10 +85,10 @@ Run the automated checks from the plugin root:
 ```sh
 pnpm test:unit        # Isolated PHP rule and admin callback tests.
 pnpm test:integration # Real WooCommerce variation template smoke test.
-pnpm test:e2e         # wp-admin browser smoke test; requires Docker for wp-env.
+pnpm test:e2e         # wp-admin and storefront UI browser tests; requires Docker for wp-env.
 ```
 
-`test:integration` and `test:e2e` seed a disposable local WooCommerce site. The browser test verifies the parent variation warning, restricted/unrestricted checkbox states, and persistence after an admin save.
+`test:integration` and `test:e2e` seed a disposable local WooCommerce site. The browser suite verifies the variation admin flow plus the shared modal's accessible contract and its classic cart, Block Cart, and checkout wiring. The UI tests stub only the external SDK boundary; they do not depend on an external MitID test environment.
 
 ### Running tests
 
