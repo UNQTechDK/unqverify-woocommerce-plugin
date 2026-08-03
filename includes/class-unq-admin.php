@@ -575,6 +575,19 @@ function unq_agev_product_meta_box_callback( $post ) {
     }
     $cat_gated = ! empty( $gated_cat_names );
 
+    $restricted_variation_ids = get_posts(
+        array(
+            'post_type'      => 'product_variation',
+            'post_parent'    => $post->ID,
+            'post_status'    => array( 'publish', 'private', 'draft' ),
+            'fields'         => 'ids',
+            'posts_per_page' => -1,
+            'meta_key'       => '_unq_agev_required',
+            'meta_value'     => 'yes',
+        )
+    );
+    $restricted_variation_count = is_array( $restricted_variation_ids ) ? count( $restricted_variation_ids ) : 0;
+
     if ( 'all' === $targeting ) {
         if ( $age_override > 0 ) {
             $status_class = 'is-required';
@@ -648,6 +661,21 @@ function unq_agev_product_meta_box_callback( $post ) {
         <span class="unq-col-badge <?php echo esc_attr( $status_class ); ?>"><?php echo esc_html( $status_label ); ?></span>
         <p class="unq-mb-status-desc"><?php echo esc_html( $status_desc ); ?></p>
     </div>
+    <?php if ( $restricted_variation_count > 0 ) : ?>
+    <div class="unq-mb-variation-notice">
+        <strong><?php esc_html_e( 'Variation rules active', 'unq-age-verification' ); ?></strong>
+        <p>
+            <?php
+            printf(
+                /* translators: %d: number of variations with direct age-verification rules */
+                esc_html( _n( '%d variation has a direct age-verification rule.', '%d variations have direct age-verification rules.', $restricted_variation_count, 'unq-age-verification' ) ),
+                $restricted_variation_count
+            );
+            ?>
+            <?php esc_html_e( 'They add to parent and category rules. A variation age override takes precedence only for that variation.', 'unq-age-verification' ); ?>
+        </p>
+    </div>
+    <?php endif; ?>
     <p style="margin-top:8px;">
         <label>
             <input type="checkbox"
@@ -700,6 +728,114 @@ function unq_agev_product_meta_box_callback( $post ) {
     })();
     </script>
     <?php
+}
+
+/**
+ * Render age-verification controls at the end of a WooCommerce variation row.
+ *
+ * @param int                  $loop           Variation form index.
+ * @param array                $variation_data Variation data supplied by WooCommerce.
+ * @param WP_Post              $variation      Variation post being rendered.
+ */
+function unq_agev_render_variation_fields( $loop, $variation_data, $variation ) {
+    $variation_product = wc_get_product( $variation->ID );
+    if ( ! $variation_product || ! $variation_product->is_type( 'variation' ) ) {
+        return;
+    }
+
+    $variation_id   = $variation_product->get_id();
+    $parent_id      = $variation_product->get_parent_id();
+    $is_required    = 'yes' === $variation_product->get_meta( '_unq_agev_required', true );
+    $age_override   = (int) $variation_product->get_meta( '_unq_agev_required_age', true );
+    $parent_gated   = 'yes' === get_post_meta( $parent_id, '_unq_agev_required', true );
+    $category_gated = false;
+    $terms          = get_the_terms( $parent_id, 'product_cat' );
+
+    if ( is_array( $terms ) ) {
+        foreach ( $terms as $term ) {
+            if ( 'yes' === get_term_meta( $term->term_id, 'unq_agev_category_required', true ) ) {
+                $category_gated = true;
+                break;
+            }
+        }
+    }
+    ?>
+    <div class="form-row form-row-full unq-agev-variation-fields">
+        <p class="form-field">
+            <label class="unq-agev-variation-toggle">
+                <input type="checkbox"
+                       class="checkbox unq-agev-variation-required"
+                       name="unq_agev_variation_required[<?php echo esc_attr( $loop ); ?>]"
+                       value="yes"
+                       <?php checked( $is_required ); ?>>
+                    </label>
+                    <?php esc_html_e( 'Require age verification for this variation', 'unq-age-verification' ); ?>
+        </p>
+
+        <p class="unq-agev-variation-inherited description">
+            <?php
+            echo esc_html(
+                ( $parent_gated || $category_gated )
+                    ? __( 'This variation is already covered by a parent product or category rule. A direct rule is additive and can set its own age.', 'unq-age-verification' )
+                    : __( 'This variation has no inherited age-verification rule.', 'unq-age-verification' )
+            );
+            ?>
+        </p>
+
+        <p class="form-field unq-agev-variation-age"<?php echo $is_required ? '' : ' hidden'; ?>>
+            <label for="unq_agev_variation_age_<?php echo esc_attr( $variation_id ); ?>">
+                <?php esc_html_e( 'Minimum age override', 'unq-age-verification' ); ?>
+            </label>
+            <input type="number"
+                   class="short"
+                   id="unq_agev_variation_age_<?php echo esc_attr( $variation_id ); ?>"
+                   name="unq_agev_variation_age[<?php echo esc_attr( $loop ); ?>]"
+                   value="<?php echo esc_attr( $age_override > 0 ? $age_override : '' ); ?>"
+                   min="1" max="120" step="1"
+                   placeholder="<?php echo esc_attr( unq_agev_effective_product_age( $parent_id ) ); ?>">
+            <span class="description">
+                <?php esc_html_e( 'Leave empty to inherit the parent, category, or store age.', 'unq-age-verification' ); ?>
+            </span>
+        </p>
+    </div>
+    <?php
+}
+
+/**
+ * Persist age-verification metadata for a WooCommerce variation.
+ *
+ * @param int $variation_id Variation ID.
+ * @param int $loop         Variation form index.
+ */
+function unq_agev_save_variation_fields( $variation_id, $loop ) {
+    $variation = wc_get_product( $variation_id );
+    if ( ! $variation || ! $variation->is_type( 'variation' ) || ! current_user_can( 'edit_post', $variation_id ) ) {
+        return;
+    }
+
+    $required = isset( $_POST['unq_agev_variation_required'][ $loop ] )
+        && 'yes' === sanitize_text_field( wp_unslash( $_POST['unq_agev_variation_required'][ $loop ] ) );
+
+    if ( ! $required ) {
+        $variation->delete_meta_data( '_unq_agev_required' );
+        $variation->delete_meta_data( '_unq_agev_required_age' );
+        $variation->save_meta_data();
+        return;
+    }
+
+    $variation->update_meta_data( '_unq_agev_required', 'yes' );
+    $raw_age = isset( $_POST['unq_agev_variation_age'][ $loop ] )
+        ? wp_unslash( $_POST['unq_agev_variation_age'][ $loop ] )
+        : '';
+    $age = '' === $raw_age ? 0 : absint( $raw_age );
+
+    if ( $age >= 1 && $age <= 120 ) {
+        $variation->update_meta_data( '_unq_agev_required_age', $age );
+    } else {
+        $variation->delete_meta_data( '_unq_agev_required_age' );
+    }
+
+    $variation->save_meta_data();
 }
 
 // ---------------------------------------------------------------------------
@@ -826,6 +962,18 @@ class UNQ_Admin {
                 array(),
                 $css_ver
             );
+
+            if ( $on_product_edit ) {
+                wp_enqueue_script( 'jquery' );
+                wp_add_inline_script(
+                    'jquery',
+                    "jQuery( function( $ ) {\n"
+                    . "    $( document ).on( 'change', '.unq-agev-variation-required', function() {\n"
+                    . "        $( this ).closest( '.unq-agev-variation-fields' ).find( '.unq-agev-variation-age' ).prop( 'hidden', ! this.checked );\n"
+                    . "    } );\n"
+                    . "} );"
+                );
+            }
         } );
 
         // ── Settings page render + save ───────────────────────────────────
@@ -945,6 +1093,9 @@ class UNQ_Admin {
                 delete_post_meta( $post_id, '_unq_agev_required_age' );
             }
         } );
+
+        add_action( 'woocommerce_product_after_variable_attributes', 'unq_agev_render_variation_fields', 20, 3 );
+        add_action( 'woocommerce_save_product_variation', 'unq_agev_save_variation_fields', 20, 2 );
 
         // ── Category form fields ──────────────────────────────────────────
         add_action( 'product_cat_add_form_fields', function () {

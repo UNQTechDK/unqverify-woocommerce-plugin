@@ -9,7 +9,7 @@ on:
       tag:
         description: "Version tag (e.g. v1.0.0) — used as the release name"
         required: true
-        default: "v1.0.0"
+        default: "v1.1.0"
 
 permissions:
   contents: write
@@ -21,21 +21,65 @@ jobs:
     steps:
       - uses: actions/checkout@v4
 
-      - name: Build plugin ZIP
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: pnpm
+
+      - uses: shivammathur/setup-php@v2
+        with:
+          php-version: "7.4"
+
+      - name: Install dependencies
         run: |
-          zip -r aldersverificering-woocommerce.zip aldersverificering-woocommerce/ \
-            --exclude "aldersverificering-woocommerce/.github/*" \
-            --exclude "aldersverificering-woocommerce/tests/*" \
-            --exclude "aldersverificering-woocommerce/node_modules/*" \
-            --exclude "aldersverificering-woocommerce/*.lock" \
-            --exclude "aldersverificering-woocommerce/package.json" \
-            --exclude "aldersverificering-woocommerce/pnpm-lock.yaml" \
-            --exclude "aldersverificering-woocommerce/vitest.config*" \
-            --exclude "aldersverificering-woocommerce/phpunit.xml*" \
-            --exclude "aldersverificering-woocommerce/MANUAL_TEST_SUITE.md"
+          corepack enable
+          pnpm install --frozen-lockfile
+          composer install --no-interaction --prefer-dist
+
+      - name: Start WordPress and WooCommerce test environment
+        run: |
+          pnpm start > wp-env.log 2>&1 &
+          for attempt in {1..30}; do
+            if curl --fail --silent http://localhost:8890/wp-login.php > /dev/null; then
+              exit 0
+            fi
+            sleep 2
+          done
+          cat wp-env.log
+          exit 1
+
+      - name: Install browser test dependencies
+        run: pnpm exec playwright install --with-deps chromium
+
+      - name: Validate and build release artifact
+        run: |
+          pnpm test:unit
+          pnpm test:integration
+          pnpm test:e2e
+          pnpm make:mo
+          pnpm build:zip
+          unzip -l aldersverificering-woocommerce.zip
+          if unzip -l aldersverificering-woocommerce.zip | grep -Eq 'test-results|playwright|tests/|scripts/'; then
+            echo "Release archive contains development files."
+            exit 1
+          fi
+          shasum -a 256 aldersverificering-woocommerce.zip > aldersverificering-woocommerce.zip.sha256
+
+      - name: Upload browser diagnostics
+        if: failure()
+        uses: actions/upload-artifact@v4
+        with:
+          name: playwright-results
+          path: |
+            test-results/
+            playwright-report/
+            wp-env.log
+          if-no-files-found: ignore
 
       - name: Create GitHub Release
         uses: softprops/action-gh-release@v2
         with:
-          files: aldersverificering-woocommerce.zip
+          files: |
+            aldersverificering-woocommerce.zip
+            aldersverificering-woocommerce.zip.sha256
           generate_release_notes: true

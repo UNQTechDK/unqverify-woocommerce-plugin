@@ -4,7 +4,7 @@ Tags: woocommerce, age-verification, mitid, denmark, aldersverificering
 Requires at least: 6.0
 Tested up to: 6.7
 Requires PHP: 7.4
-Stable tag: 1.0.0
+Stable tag: 1.1.0
 License: GPL-2.0-or-later
 License URI: https://www.gnu.org/licenses/gpl-2.0.html
 
@@ -24,8 +24,9 @@ When a customer proceeds to checkout with age-restricted products in their cart,
 * Two targeting modes:
   * **All products** — every checkout requires verification
   * **Selected products & categories** — gate only specific items
-* Per-product and per-category age overrides (e.g. gate spirits at 18, tobacco at 18, cinema at 15)
-* Three-tier age resolution: store default → category override → product override
+* Per-product, per-category, and per-variation age overrides
+* Target individual age-restricted variations without gating their sibling variations
+* Four-tier age resolution: store default → gated category override → parent product override → variation override
 * Test and production environments with separate API keys
 * Popup and redirect verification flows
 * Danish and English storefront strings; admin UI fully translatable
@@ -83,6 +84,11 @@ The plugin reads a short-lived JWT cookie set by the MitID flow during checkout 
 All plugin options, category gating meta, product gating meta, and JWKS cache are removed automatically via the included `uninstall.php`.
 
 == Changelog ==
+
+= 1.1.0 =
+* Added per-variation age-gate rules for variable WooCommerce products.
+* Added variation-level age overrides and parent/category inheritance guidance.
+* Fixed release ZIP packaging and added CI verification gates.
 
 = 1.0.0 =
 * Extracted all helper functions into `includes/functions.php` for cleaner code organisation.
