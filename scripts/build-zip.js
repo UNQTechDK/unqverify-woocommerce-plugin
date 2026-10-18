@@ -32,6 +32,7 @@ const excludedFiles = new Set([
   "MANUAL_TEST_SUITE.md",
   "skills-lock.json",
   "composer.lock",
+  "wp-env.log",
   `${pluginDirName}.zip`,
   `${pluginDirName}.zip.sha256`,
 ]);
