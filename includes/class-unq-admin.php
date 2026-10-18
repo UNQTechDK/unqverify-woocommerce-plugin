@@ -123,6 +123,15 @@ function unq_agev_render_settings_page() {
             </div>
 
             <hr class="unq-section-sep">
+            <h3 class="unq-section-title"><?php esc_html_e( 'Delivery outside Denmark', 'unq-age-verification' ); ?></h3>
+            <label for="unq_agev_outside_denmark">
+                <input type="checkbox" id="unq_agev_outside_denmark" name="unq_agev_outside_denmark" value="yes"
+                       <?php checked( unq_agev_get( 'outside_denmark' ), 'yes' ); ?>>
+                <?php esc_html_e( 'Allow delivery outside Denmark without MitID', 'unq-age-verification' ); ?>
+            </label>
+            <p class="unq-card-desc"><?php esc_html_e( 'Adds a button to the cart dialog. The final shipping country is checked before payment. Danish delivery, local pickup and age-restricted virtual products still require verification. Enable only where your products and destination countries permit this.', 'unq-age-verification' ); ?></p>
+
+            <hr class="unq-section-sep">
             <h3 class="unq-section-title"><?php esc_html_e( 'Scope', 'unq-age-verification' ); ?></h3>
             <p class="unq-card-desc" style="margin-bottom:14px;"><?php esc_html_e( 'Which products require age verification at checkout?', 'unq-age-verification' ); ?></p>
 
@@ -926,6 +935,11 @@ class UNQ_Admin {
                 },
                 'default'           => 'all',
             ) );
+            register_setting( $group, 'unq_agev_outside_denmark', array(
+                'type'              => 'string',
+                'sanitize_callback' => function ( $v ) { return 'yes' === $v ? 'yes' : 'no'; },
+                'default'           => 'no',
+            ) );
         } );
 
         // ── WooCommerce Settings tab ───────────────────────────────────────
@@ -1022,6 +1036,7 @@ class UNQ_Admin {
                 update_option( 'unq_agev_verification_mode',  $mode );
                 update_option( 'unq_agev_locale',             $locale );
                 update_option( 'unq_agev_targeting',          $targeting );
+                update_option( 'unq_agev_outside_denmark', isset( $_POST['unq_agev_outside_denmark'] ) && 'yes' === $_POST['unq_agev_outside_denmark'] ? 'yes' : 'no' );
 
                 $gated_cats = isset( $_POST['unq_agev_gated_categories'] ) && is_array( $_POST['unq_agev_gated_categories'] )
                     ? array_map( 'absint', $_POST['unq_agev_gated_categories'] )

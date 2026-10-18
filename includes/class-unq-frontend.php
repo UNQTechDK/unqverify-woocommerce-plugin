@@ -16,6 +16,8 @@ class UNQ_Frontend {
 
     public static function register() {
 
+        UNQ_Delivery_Gate::register();
+
         // ── Rewrite rule (registered every request so it is always live) ─
         add_action( 'init', function () {
             add_rewrite_rule( '^unqverify/callback/?$', 'index.php?unqverify=callback', 'top' );
@@ -106,6 +108,9 @@ class UNQ_Frontend {
 
         // ── Checkout guard — redirect to cart when JWT is absent/invalid ─
         add_action( 'template_redirect', function () {
+            if ( UNQ_Delivery_Gate::active() ) {
+                return; // Allow address entry; the final destination is checked server-side.
+            }
             if ( ! unq_agev_cart_is_gated() ) {
                 return;
             }
@@ -148,6 +153,9 @@ class UNQ_Frontend {
 
         // ── Server-side validation: WooCommerce Blocks (Store API) ────────
         add_action( 'woocommerce_store_api_checkout_order_processed', function ( $order ) {
+            if ( UNQ_Delivery_Gate::active() ) {
+                return; // The delivery gate validates the actual order at priority 100.
+            }
             if ( ! unq_agev_cart_is_gated() ) {
                 return;
             }
@@ -174,6 +182,9 @@ class UNQ_Frontend {
 
         // ── Server-side validation: classic checkout ──────────────────────
         add_action( 'woocommerce_checkout_process', function () {
+            if ( UNQ_Delivery_Gate::active() ) {
+                return; // Wait for WooCommerce's normalized checkout data.
+            }
             if ( ! unq_agev_cart_is_gated() ) {
                 return;
             }
@@ -213,6 +224,7 @@ class UNQ_Frontend {
 
             $is_gated_cart     = is_cart() && unq_agev_cart_is_gated();
             $is_gated_checkout = is_checkout()
+                && ! UNQ_Delivery_Gate::active()
                 && unq_agev_cart_is_gated()
                 && ! is_wc_endpoint_url( 'order-received' )
                 && ! is_wc_endpoint_url( 'order-pay' );
@@ -248,6 +260,7 @@ class UNQ_Frontend {
                     'UNQCart',
                     array_merge( $shared_data, array(
                         'checkoutUrl' => wc_get_checkout_url(),
+                        'outsideDenmark' => UNQ_Delivery_Gate::active(),
                         'nonce'       => wp_create_nonce( 'unq_age_cart' ),
                         'i18n'        => unq_agev_strings( unq_agev_resolve_locale(), unq_agev_cart_required_age() ),
                     ) )

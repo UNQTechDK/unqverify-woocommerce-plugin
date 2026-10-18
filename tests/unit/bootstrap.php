@@ -58,6 +58,8 @@ class UNQ_Agev_Test_Cart {
 
 class UNQ_Agev_Test_WooCommerce {
     public $cart;
+    public $countries;
+    public $session;
 
     public function __construct() {
         $this->cart = new UNQ_Agev_Test_Cart();
@@ -78,3 +80,13 @@ if ( ! function_exists( 'WC' ) ) {
 
 require_once dirname( __DIR__, 2 ) . '/includes/class-unq-jwt-validator.php';
 require_once dirname( __DIR__, 2 ) . '/includes/functions.php';
+
+// Match the Store API exception constructor without loading WooCommerce itself.
+if ( ! class_exists( '\\Automattic\\WooCommerce\\StoreApi\\Exceptions\\RouteException' ) ) {
+    class UNQ_Agev_Test_Route_Exception extends Exception {
+        public function __construct( $error_code, $message, $http_status = 400, $additional_data = array() ) {
+            parent::__construct( $message, $http_status );
+        }
+    }
+    class_alias( 'UNQ_Agev_Test_Route_Exception', '\\Automattic\\WooCommerce\\StoreApi\\Exceptions\\RouteException' );
+}

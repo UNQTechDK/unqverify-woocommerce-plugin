@@ -34,6 +34,52 @@ MitID-based age verification for WooCommerce checkout using the [UNQVerify SDK](
 
 ## Storefront UX and MitID presentation
 
+### Optional delivery outside Denmark
+
+The **Allow delivery outside Denmark without MitID** setting
+(`unq_agev_outside_denmark`, default `no`) adds a **Delivery outside Denmark**
+link to the existing cart dialog. It opens WooCommerce's configured checkout
+URL without storing a verification or exemption cookie. Enable this only where
+the merchant's product and destination-country requirements permit it.
+
+When enabled, customers can enter checkout before verification. The plugin does
+not inject a checkout banner, watch address fields, replace templates, intercept
+the place-order button or alter payment methods. The final shipping destination
+is checked on the server using classic checkout and Store API hooks. A Danish,
+missing, invalid or unsupported destination still requires a valid age token.
+Foreign billing alone never grants an exemption. Local pickup (including Blocks
+pickup), missing shipping methods and gated virtual goods also require a token.
+Custom pickup methods should register with `woocommerce_local_pickup_methods`.
+
+If a customer selects the foreign-delivery link but orders to Denmark, WooCommerce
+shows its normal error with instructions to return to the cart and verify.
+Classic checkout errors include a cart link; Store API errors include its URL.
+The actual order is checked again before payment, including standard order-pay
+retries for orders created under this option, so changing the destination or
+clearing the cart cannot reuse an exemption. Successful verification is recorded
+on the order (required age and a hash of the active public key; no JWT), allowing
+payment retries after the browser token expires. An exemption is never recorded
+as verification. Historical/manual orders that did not pass this policy retain
+their existing payment flow.
+
+Custom checkouts are supported through WooCommerce's standard server hooks,
+not through assumptions about their HTML. Integrations that create/pay orders
+through proprietary routes, multi-address shipping extensions and express
+payment plugins need a separate compatibility test before enabling this option.
+No blanket compatibility with third-party checkout plugins is claimed.
+
+`tests/e2e/delivery-checkout.spec.js` submits local classic and Store API orders,
+checks mixed billing/shipping countries and forged cookies, and verifies that
+rejected Danish orders cannot use the standard payment-retry hook. Its fixtures
+restore the previous settings and remove test orders/products/pages afterwards.
+Run it against the disposable wp-env site; it does not use real MitID or charge
+a payment card. Order verification metadata is retained when uninstalling so
+historical order records are not erased.
+
+Disabling the setting restores the existing verification-before-checkout flow.
+
+### MitID presentation
+
 The control that starts the MitID client uses the official MitID CTA treatment:
 `Confirm with MitID` in English and `Bekræft med MitID` in Danish. It uses the
 supplied white MitID logo, fixed MitID blue (`#0060E6`), IBM Plex Sans SemiBold,

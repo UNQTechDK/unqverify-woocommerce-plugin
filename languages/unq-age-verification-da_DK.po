@@ -17,6 +17,15 @@ msgstr ""
 
 # ── Variation inventory fields ──────────────────────────────────────────────
 
+msgid "Delivery outside Denmark"
+msgstr "Levering uden for Danmark"
+
+msgid "Allow delivery outside Denmark without MitID"
+msgstr "Tillad levering uden for Danmark uden MitID"
+
+msgid "Adds a button to the cart dialog. The final shipping country is checked before payment. Danish delivery, local pickup and age-restricted virtual products still require verification. Enable only where your products and destination countries permit this."
+msgstr "Tilføjer en knap i kurvens dialog. Det endelige leveringsland kontrolleres før betaling. Levering til Danmark, afhentning og aldersbegrænsede virtuelle produkter kræver stadig verificering. Aktivér kun, hvor dine produkter og destinationslande tillader det."
+
 msgid "Require age verification for this variation"
 msgstr "Kræv aldersverificering for denne variant"
 

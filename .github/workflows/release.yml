@@ -9,7 +9,7 @@ on:
       tag:
         description: "Version tag (e.g. v1.0.0) — used as the release name"
         required: true
-        default: "v1.1.2"
+        default: "v1.2.0"
 
 permissions:
   contents: write
@@ -20,6 +20,10 @@ jobs:
 
     steps:
       - uses: actions/checkout@v4
+
+      - uses: pnpm/action-setup@v4
+        with:
+          version: 9.12.2
 
       - uses: actions/setup-node@v4
         with:
@@ -32,21 +36,13 @@ jobs:
 
       - name: Install dependencies
         run: |
-          corepack enable
           pnpm install --frozen-lockfile
           composer install --no-interaction --prefer-dist
 
       - name: Start WordPress and WooCommerce test environment
+        timeout-minutes: 10
         run: |
-          pnpm start > wp-env.log 2>&1 &
-          for attempt in {1..30}; do
-            if curl --fail --silent http://localhost:8890/wp-login.php > /dev/null; then
-              exit 0
-            fi
-            sleep 2
-          done
-          cat wp-env.log
-          exit 1
+          pnpm start > wp-env.log 2>&1 || { cat wp-env.log; exit 1; }
 
       - name: Install browser test dependencies
         run: pnpm exec playwright install --with-deps chromium

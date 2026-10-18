@@ -97,6 +97,7 @@
       mode: UNQCart.mode,
       testMode: UNQCart.testMode,
       onVerify: beginVerification,
+      outsideDenmarkUrl: UNQCart.outsideDenmark ? UNQCart.checkoutUrl : null,
     });
     return _modal;
   }
