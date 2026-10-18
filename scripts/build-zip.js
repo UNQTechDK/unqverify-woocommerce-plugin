@@ -33,6 +33,7 @@ const excludedFiles = new Set([
   "skills-lock.json",
   "composer.lock",
   `${pluginDirName}.zip`,
+  `${pluginDirName}.zip.sha256`,
 ]);
 
 function resetDir(dirPath) {

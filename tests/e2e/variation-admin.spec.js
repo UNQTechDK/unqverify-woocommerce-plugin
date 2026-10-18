@@ -1,4 +1,5 @@
 const { test, expect } = require("@playwright/test");
+const { seededFixtures } = require("./helpers/fixtures");
 
 async function logIn(page) {
   await page.goto("/wp-login.php");
@@ -28,8 +29,9 @@ async function variationRow(page, variationId) {
 test("variation age-verification controls render and persist in wp-admin", async ({
   page,
 }) => {
+  const fixtures = seededFixtures();
   await logIn(page);
-  await page.goto("/wp-admin/post.php?post=19&action=edit");
+  await page.goto(`/wp-admin/post.php?post=${fixtures.parent}&action=edit`);
 
   const parentNotice = page.locator(".unq-mb-variation-notice");
   await expect(parentNotice).toContainText("Variation rules active");
@@ -43,10 +45,10 @@ test("variation age-verification controls render and persist in wp-admin", async
   await variationsTab.scrollIntoViewIfNeeded();
   await variationsTab.click();
   await expect(
-    page.locator('input.variable_post_id[value="23"]'),
+    page.locator(`input.variable_post_id[value="${fixtures.restricted}"]`),
   ).toBeAttached();
 
-  const restrictedRow = await variationRow(page, 23);
+  const restrictedRow = await variationRow(page, fixtures.restricted);
   await restrictedRow.locator(".edit_variation").click();
   const restrictedToggle = restrictedRow.locator(
     ".unq-agev-variation-required",
@@ -54,7 +56,7 @@ test("variation age-verification controls render and persist in wp-admin", async
   await expect(restrictedToggle).toBeVisible();
   await expect(restrictedToggle).toBeChecked();
 
-  const unrestrictedRow = await variationRow(page, 22);
+  const unrestrictedRow = await variationRow(page, fixtures.unrestricted);
   await unrestrictedRow.locator(".edit_variation").click();
   const unrestrictedToggle = unrestrictedRow.locator(
     ".unq-agev-variation-required",
@@ -80,9 +82,9 @@ test("variation age-verification controls render and persist in wp-admin", async
   await persistedVariationsTab.scrollIntoViewIfNeeded();
   await persistedVariationsTab.click();
   await expect(
-    page.locator('input.variable_post_id[value="22"]'),
+    page.locator(`input.variable_post_id[value="${fixtures.unrestricted}"]`),
   ).toBeAttached();
-  const persistedRow = await variationRow(page, 22);
+  const persistedRow = await variationRow(page, fixtures.unrestricted);
   await persistedRow.locator(".edit_variation").click();
   await expect(
     persistedRow.locator(".unq-agev-variation-required"),

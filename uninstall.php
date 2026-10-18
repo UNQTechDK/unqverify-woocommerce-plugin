@@ -22,6 +22,7 @@ $options = array(
     'unq_agev_verification_mode',
     'unq_agev_locale',
     'unq_agev_targeting',
+    'unq_agev_outside_denmark',
 );
 foreach ( $options as $option ) {
     delete_option( $option );

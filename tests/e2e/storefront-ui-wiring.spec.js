@@ -24,6 +24,9 @@ const i18n = {
     "Test mode is active. No real MitID verification is performed.",
   modalVerifyBtn: "Confirm with MitID",
   modalCancelBtn: "Cancel",
+  outsideDenmark: "Delivery outside Denmark",
+  deliveryBody: "For delivery to Denmark, verify your age (18+) with MitID. For delivery abroad, continue below.",
+  deliveryNote: "The final delivery address is checked when you place your order.",
 };
 
 async function installSharedUi(page) {
@@ -94,6 +97,7 @@ test("classic cart opens the shared modal and reports a denied outcome", async (
   await expect(checkoutLink).toHaveAttribute("aria-haspopup", "dialog");
   await expect(checkoutLink).toHaveAttribute("aria-controls", "unq-age-modal");
   await checkoutLink.click();
+  await expect(page.getByRole("link", { name: "Delivery outside Denmark" })).toHaveCount(0);
   await expect(
     page.getByRole("dialog", { name: "Age verification required" }),
   ).toBeVisible();
@@ -167,4 +171,36 @@ test("checkout banner opens the same shared modal", async ({ page }) => {
   await expect(
     page.getByRole("dialog", { name: "Age verification required" }),
   ).toBeVisible();
+});
+
+test("foreign-delivery link preserves WooCommerce's checkout URL without a bypass cookie", async ({ page }) => {
+  await page.setViewportSize({ width: 320, height: 640 });
+  await page.route("https://shop.test/**", (route) => route.fulfill({
+    contentType: "text/html",
+    body: '<!doctype html><html lang="en"><title>Cart</title><body><a class="checkout-button" href="/custom-checkout/?step=address">Checkout</a></body></html>',
+  }));
+  await page.goto("https://shop.test/cart/");
+  await installSharedUi(page);
+  await installRuntimeStubs(page);
+  await page.evaluate((config) => { window.UNQCart = config; }, {
+    ...cartConfig(),
+    outsideDenmark: true,
+    checkoutUrl: "https://shop.test/custom-checkout/?step=address",
+  });
+  await page.addScriptTag({ path: path.join(pluginRoot, "assets/cart.js") });
+  await page.getByRole("link", { name: "Checkout", exact: true }).click();
+  const outside = page.getByRole("link", { name: "Delivery outside Denmark" });
+  await expect(outside).toBeVisible();
+  await expect(page.getByText(i18n.deliveryBody)).toBeVisible();
+  await expect(page.getByRole("button", { name: "Confirm with MitID" })).toBeFocused();
+  await page.keyboard.press("Tab");
+  await expect(outside).toBeFocused();
+  await page.keyboard.press("Tab");
+  await expect(page.getByRole("button", { name: "Cancel" })).toBeFocused();
+  await page.keyboard.press("Tab");
+  await expect(page.getByRole("button", { name: "Confirm with MitID" })).toBeFocused();
+  expect(await page.evaluate(() => document.documentElement.scrollWidth <= window.innerWidth)).toBe(true);
+  await outside.click();
+  await expect(page).toHaveURL("https://shop.test/custom-checkout/?step=address");
+  expect(await page.context().cookies()).toEqual([]);
 });

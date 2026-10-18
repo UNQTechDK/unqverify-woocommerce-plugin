@@ -30,6 +30,7 @@ if ( ! defined( 'ABSPATH' ) ) {
  *   mode             → 'popup' | 'redirect'
  *   locale           → 'auto' | 'en' | 'da'
  *   targeting        → 'all' | 'selected_only'
+ *   outside_denmark  → 'yes' | 'no' (allow foreign delivery without MitID)
  *
  * @param  string $key
  * @return mixed
@@ -63,6 +64,9 @@ function unq_agev_get( $key ) {
         case 'targeting':
             $targeting = get_option( 'unq_agev_targeting', 'all' );
             $value     = in_array( $targeting, array( 'all', 'selected_only' ), true ) ? $targeting : 'all';
+            break;
+        case 'outside_denmark':
+            $value = 'yes' === get_option( 'unq_agev_outside_denmark', 'no' ) ? 'yes' : 'no';
             break;
         default:
             return '';
@@ -395,6 +399,11 @@ function unq_agev_strings( $locale, $age = 18 ) {
             'testModeDescription' => 'Test mode is active. No real MitID verification is performed.',
             'modalVerifyBtn' => 'Confirm with MitID',
             'modalCancelBtn' => 'Cancel',
+            'outsideDenmark' => 'Delivery outside Denmark',
+            'deliveryBody'   => sprintf( 'For delivery to Denmark, verify your age (%d+) with MitID. For delivery abroad, continue below.', $age ),
+            'deliveryNote'   => 'The final delivery address is checked when you place your order.',
+            'deliveryRequired' => 'Age verification is required for this order. Return to your cart and confirm your age with MitID before placing the order. A foreign billing address does not exempt delivery to Denmark.',
+            'returnToCart'   => 'Return to cart',
         ),
         'da' => array(
             'cart_notice'    => 'Du skal gennemføre aldersverificering, inden du kan gå til kassen.',
@@ -415,6 +424,11 @@ function unq_agev_strings( $locale, $age = 18 ) {
             'testModeDescription' => 'Testtilstand er aktiv. Der gennemføres ikke en rigtig MitID-verificering.',
             'modalVerifyBtn' => 'Bekræft med MitID',
             'modalCancelBtn' => 'Annuller',
+            'outsideDenmark' => 'Levering uden for Danmark',
+            'deliveryBody'   => sprintf( 'Ved levering til Danmark skal du bekræfte din alder (%d+) med MitID. Ved levering til udlandet kan du fortsætte nedenfor.', $age ),
+            'deliveryNote'   => 'Den endelige leveringsadresse kontrolleres, når du bestiller.',
+            'deliveryRequired' => 'Denne ordre kræver aldersverificering. Gå tilbage til kurven og bekræft din alder med MitID, før du bestiller. En udenlandsk faktureringsadresse fritager ikke levering til Danmark.',
+            'returnToCart'   => 'Tilbage til kurven',
         ),
     );
     return isset( $strings[ $locale ] ) ? $strings[ $locale ] : $strings['en'];

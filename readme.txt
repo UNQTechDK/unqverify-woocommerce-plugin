@@ -4,7 +4,7 @@ Tags: woocommerce, age-verification, mitid, denmark, aldersverificering
 Requires at least: 6.0
 Tested up to: 6.7
 Requires PHP: 7.4
-Stable tag: 1.1.2
+Stable tag: 1.2.0
 License: GPL-2.0-or-later
 License URI: https://www.gnu.org/licenses/gpl-2.0.html
 
@@ -29,6 +29,7 @@ When a customer proceeds to checkout with age-restricted products in their cart,
 * Four-tier age resolution: store default → gated category override → parent product override → variation override
 * Test and production environments with separate API keys
 * Popup and redirect verification flows
+* Optional delivery outside Denmark without MitID, with server-side destination checks
 * Accessible age-verification interface with the documented official MitID CTA
 * Danish and English storefront strings; admin UI fully translatable
 * WPML and Polylang compatible
@@ -54,6 +55,10 @@ Sign up at [Aldersverificering.dk](https://www.aldersverificering.dk) to receive
 
 Yes. The plugin validates age verification server-side via the Store API checkout hook, so it works with both the classic shortcode checkout and the modern Blocks-based checkout.
 
+= Can customers order for delivery outside Denmark without MitID? =
+
+Enable **Allow delivery outside Denmark without MitID** under **WooCommerce > Settings > UNQVerify**. This option is off by default. It adds a secondary text link to the cart dialog and lets customers enter their delivery address before verification. The final shipping destination is checked before payment: Danish delivery, local pickup and age-restricted virtual products still require verification. A foreign billing address alone does not grant an exemption. Enable this option only where your products and destination-country requirements permit it. Custom checkout and express-payment integrations need their own compatibility test.
+
 = Can I require a different age for different products? =
 
 Yes. In **selected products & categories** mode you can set a per-category age override and a per-product age override. The most specific rule wins: product override > category override > store default.
@@ -78,7 +83,7 @@ of that product.
 
 = Does the plugin store personal data? =
 
-The plugin reads a short-lived JWT cookie set by the MitID flow during checkout validation and immediately discards it. No personal data is persisted to the database.
+The plugin validates a short-lived JWT cookie set by the MitID flow. It does not store the JWT or identity details in the database. With the optional foreign-delivery setting enabled, it stores the verification requirement satisfied and a hash of the active public key on the order so payment can be retried after the browser token expires.
 
 = Does the plugin use the official MitID button or logo? =
 
@@ -87,8 +92,16 @@ Yes. The button that starts the MitID client uses the supplied official white Mi
 = What cleanup happens when I delete the plugin? =
 
 All plugin options, category gating meta, product gating meta, and JWKS cache are removed automatically via the included `uninstall.php`.
+Order verification metadata is retained as part of the historical order record.
 
 == Changelog ==
+
+= 1.2.0 =
+* Added an opt-in setting for delivery outside Denmark without MitID, enforced against the final shipping destination in classic checkout and Store API.
+* Added a secondary underlined delivery link, shorter explanatory text and an italic delivery-address footnote in Danish and English.
+* Kept verification required for Danish delivery, local pickup and age-restricted virtual products.
+* Added order verification records and payment-retry checks, including Store API payment of existing orders.
+* Added delivery-policy tests and isolated local checkout fixtures with settings restoration.
 
 = 1.1.2 =
 * Implemented the official MitID CTA for starting verification with the supplied white logo, fixed MitID blue, IBM Plex Sans SemiBold, and preferred 4 px radius.

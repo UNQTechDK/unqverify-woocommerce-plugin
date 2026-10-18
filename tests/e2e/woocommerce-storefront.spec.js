@@ -1,8 +1,10 @@
 const { test, expect } = require("@playwright/test");
+const { seededFixtures } = require("./helpers/fixtures");
 
 test("gated WooCommerce cart enqueues and opens the accessible modal", async ({
   page,
 }) => {
+  const fixtures = seededFixtures();
   await page.addInitScript(() => {
     window.UnqVerify = {
       isVerified() {
@@ -14,10 +16,9 @@ test("gated WooCommerce cart enqueues and opens the accessible modal", async ({
     };
   });
 
-  // Product #16 is the deterministic ordinary-product fixture created by
-  // scripts/seed-products.php. All-products targeting makes the cart gated.
-  await page.goto("/?add-to-cart=16");
-  await page.goto("/cart/");
+  // Resolve fixtures from their stable SKUs on both local and fresh CI sites.
+  await page.goto(`/?add-to-cart=${fixtures.ordinary}`);
+  await page.goto(fixtures.cartUrl);
 
   await expect(
     page.locator('link[href*="assets/frontend.css"]'),

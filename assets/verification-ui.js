@@ -6,6 +6,7 @@
   var TITLE_ID = "unq-age-modal-title";
   var BODY_ID = "unq-age-modal-body";
   var POPUP_NOTICE_ID = "unq-age-modal-popup-notice";
+  var DELIVERY_NOTE_ID = "unq-age-modal-delivery-note";
   var FOCUSABLE_SELECTOR =
     "a[href], button:not([disabled]), input:not([disabled]), select:not([disabled]), " +
     'textarea:not([disabled]), [tabindex]:not([tabindex="-1"])';
@@ -202,7 +203,11 @@
       var title = createElement("h2", "unq-agev-modal__title", i18n.modalTitle);
       title.id = TITLE_ID;
 
-      var body = createElement("p", "unq-agev-modal__body", i18n.modalBody);
+      var body = createElement(
+        "p",
+        "unq-agev-modal__body",
+        options.outsideDenmarkUrl ? i18n.deliveryBody : i18n.modalBody,
+      );
       body.id = BODY_ID;
 
       dialog.appendChild(icon);
@@ -262,6 +267,26 @@
       dialog.appendChild(statusMessage);
       dialog.appendChild(busyAnnouncement);
       dialog.appendChild(verifyButton);
+      if (options.outsideDenmarkUrl) {
+        var outsideLink = createElement(
+          "a",
+          "unq-agev-modal__outside",
+        );
+        outsideLink.href = options.outsideDenmarkUrl;
+        var outsideLabel = createElement(
+          "span",
+          "unq-agev-modal__outside-label",
+          i18n.outsideDenmark,
+        );
+        outsideLink.appendChild(outsideLabel);
+        outsideLink.setAttribute("aria-describedby", DELIVERY_NOTE_ID);
+        dialog.appendChild(outsideLink);
+
+        var deliveryNote = createElement("p", "unq-agev-modal__delivery-note");
+        deliveryNote.id = DELIVERY_NOTE_ID;
+        deliveryNote.appendChild(createElement("em", "", "* " + i18n.deliveryNote));
+        dialog.appendChild(deliveryNote);
+      }
       dialog.appendChild(cancelButton);
       overlay.appendChild(dialog);
     }
