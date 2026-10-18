@@ -29,6 +29,7 @@ skills-lock.json
 /coverage
 /test-results/
 /playwright-report/
+/wp-env.log
 
 # misc
 .DS_Store
